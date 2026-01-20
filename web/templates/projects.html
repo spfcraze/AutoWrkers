@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraClaude - Projects</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/projects.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">UltraClaude</span>
+                </a>
+            </div>
+            <nav class="nav-tabs">
+                <a href="/" class="nav-tab">Sessions</a>
+                <a href="/projects" class="nav-tab active">Projects</a>
+            </nav>
+            <button class="btn btn-primary" onclick="showCreateProjectModal()">
+                + New Project
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <div class="projects-main">
+            <!-- Projects List -->
+            <div class="projects-sidebar" id="projects-list">
+                <div class="sidebar-header">
+                    <h2>Projects</h2>
+                    <span class="project-count" id="project-count">0</span>
+                </div>
+                <div class="projects-grid" id="projects-grid">
+                    <!-- Project cards injected here -->
+                    <div class="empty-state" id="empty-projects">
+                        <div class="empty-state-icon">📦</div>
+                        <p>No projects yet</p>
+                        <p style="margin-top: 8px; font-size: 12px;">Link a GitHub repo to get started</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Detail -->
+            <div class="project-detail" id="project-detail">
+                <div class="detail-placeholder">
+                    <div class="placeholder-icon">👈</div>
+                    <p>Select a project to view its issues</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div class="modal" id="create-project-modal">
+        <div class="modal-content modal-large">
+            <h3>Create New Project</h3>
+            <form id="create-project-form" onsubmit="handleCreateProject(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="project-name">Project Name</label>
+                        <input type="text" id="project-name" placeholder="My Awesome Project" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="github-repo">GitHub Repository</label>
+                        <input type="text" id="github-repo" placeholder="owner/repo or full GitHub URL" required>
+                        <span class="form-hint">e.g., spfcraze/WP-booking-pro or https://github.com/spfcraze/WP-booking-pro</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="github-token">GitHub Token (Personal Access Token)</label>
+                    <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+                    <span class="form-hint">Needs repo scope for full access</span>
+                </div>
+                <div class="form-group">
+                    <label for="working-dir">Working Directory (local clone path)</label>
+                    <input type="text" id="working-dir" placeholder="/path/to/local/repo">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="default-branch">Default Branch</label>
+                        <input type="text" id="default-branch" value="main">
+                    </div>
+                    <div class="form-group">
+                        <label for="max-concurrent">Max Concurrent Sessions</label>
+                        <input type="number" id="max-concurrent" value="1" min="1" max="5">
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 20px;">Verification Commands (optional)</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lint-command">Lint Command</label>
+                        <input type="text" id="lint-command" placeholder="npm run lint">
+                    </div>
+                    <div class="form-group">
+                        <label for="test-command">Test Command</label>
+                        <input type="text" id="test-command" placeholder="npm test">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="build-command">Build Command</label>
+                    <input type="text" id="build-command" placeholder="npm run build">
+                </div>
+
+                <h4 style="margin-top: 20px;">Issue Filters (optional)</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="filter-labels">Include Labels (comma-separated)</label>
+                        <input type="text" id="filter-labels" placeholder="bug, enhancement">
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-exclude">Exclude Labels (comma-separated)</label>
+                        <input type="text" id="filter-exclude" placeholder="wontfix, duplicate">
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 20px;">LLM Provider (optional)</h4>
+                <div class="form-group">
+                    <label for="llm-provider">Provider</label>
+                    <select id="llm-provider" onchange="toggleLlmSettings('create')">
+                        <option value="claude_code">Claude Code (default)</option>
+                        <option value="ollama">Ollama (local)</option>
+                        <option value="lm_studio">LM Studio (local)</option>
+                        <option value="openrouter">OpenRouter (cloud)</option>
+                    </select>
+                    <span class="form-hint">Claude Code uses the existing tmux-based integration</span>
+                </div>
+                <div id="llm-settings-create" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="llm-api-url">API URL</label>
+                            <input type="text" id="llm-api-url" placeholder="http://localhost:11434">
+                            <span class="form-hint" id="llm-api-url-hint">Default for Ollama: http://localhost:11434</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="llm-model">Model Name</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="llm-model" placeholder="llama3.2:latest" style="flex: 1;">
+                                <button type="button" class="btn btn-small" onclick="fetchModels('create')">Fetch Models</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="llm-api-key-group" style="display: none;">
+                        <label for="llm-api-key">API Key</label>
+                        <input type="password" id="llm-api-key" placeholder="sk-or-xxxxxxxxxxxx">
+                        <span class="form-hint">Required for OpenRouter</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="llm-context-length">Context Length</label>
+                            <input type="number" id="llm-context-length" value="8192" min="1024" max="128000">
+                        </div>
+                        <div class="form-group">
+                            <label for="llm-temperature">Temperature</label>
+                            <input type="number" id="llm-temperature" value="0.1" min="0" max="2" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn" onclick="testLlmConnection('create')">Test Connection</button>
+                        <span id="llm-test-result-create" class="form-hint" style="margin-left: 12px;"></span>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 16px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-sync" checked>
+                        Auto-sync issues from GitHub
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-start">
+                        Auto-start sessions for new issues
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="closeCreateProjectModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Issue Detail Modal -->
+    <div class="modal" id="issue-detail-modal">
+        <div class="modal-content modal-large">
+            <div id="issue-detail-content">
+                <!-- Issue details injected here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeIssueDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div class="modal" id="edit-project-modal">
+        <div class="modal-content modal-large">
+            <h3>Edit Project</h3>
+            <form id="edit-project-form" onsubmit="handleEditProject(event)">
+                <input type="hidden" id="edit-project-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-project-name">Project Name</label>
+                        <input type="text" id="edit-project-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-github-repo">GitHub Repository</label>
+                        <input type="text" id="edit-github-repo" disabled>
+                        <span class="form-hint">Repository cannot be changed</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit-github-token">GitHub Token</label>
+                    <input type="password" id="edit-github-token" placeholder="Leave blank to keep existing token">
+                    <span class="form-hint">Only enter if you want to change the token</span>
+                </div>
+                <div class="form-group">
+                    <label for="edit-working-dir">Working Directory</label>
+                    <input type="text" id="edit-working-dir">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-default-branch">Default Branch</label>
+                        <input type="text" id="edit-default-branch">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-max-concurrent">Max Concurrent Sessions</label>
+                        <input type="number" id="edit-max-concurrent" min="1" max="5">
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 20px;">Verification Commands</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-lint-command">Lint Command</label>
+                        <input type="text" id="edit-lint-command" placeholder="npm run lint">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-test-command">Test Command</label>
+                        <input type="text" id="edit-test-command" placeholder="npm test">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit-build-command">Build Command</label>
+                    <input type="text" id="edit-build-command" placeholder="npm run build">
+                </div>
+
+                <h4 style="margin-top: 20px;">Issue Filters</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-filter-labels">Include Labels (comma-separated)</label>
+                        <input type="text" id="edit-filter-labels" placeholder="bug, enhancement">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-filter-exclude">Exclude Labels (comma-separated)</label>
+                        <input type="text" id="edit-filter-exclude" placeholder="wontfix, duplicate">
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 20px;">LLM Provider</h4>
+                <div class="form-group">
+                    <label for="edit-llm-provider">Provider</label>
+                    <select id="edit-llm-provider" onchange="toggleLlmSettings('edit')">
+                        <option value="claude_code">Claude Code (default)</option>
+                        <option value="ollama">Ollama (local)</option>
+                        <option value="lm_studio">LM Studio (local)</option>
+                        <option value="openrouter">OpenRouter (cloud)</option>
+                    </select>
+                    <span class="form-hint">Claude Code uses the existing tmux-based integration</span>
+                </div>
+                <div id="llm-settings-edit" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-llm-api-url">API URL</label>
+                            <input type="text" id="edit-llm-api-url" placeholder="http://localhost:11434">
+                            <span class="form-hint" id="edit-llm-api-url-hint">Default for Ollama: http://localhost:11434</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-llm-model">Model Name</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="edit-llm-model" placeholder="llama3.2:latest" style="flex: 1;">
+                                <button type="button" class="btn btn-small" onclick="fetchModels('edit')">Fetch Models</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="edit-llm-api-key-group" style="display: none;">
+                        <label for="edit-llm-api-key">API Key</label>
+                        <input type="password" id="edit-llm-api-key" placeholder="Leave blank to keep existing key">
+                        <span class="form-hint">Required for OpenRouter - leave blank to keep existing</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-llm-context-length">Context Length</label>
+                            <input type="number" id="edit-llm-context-length" value="8192" min="1024" max="128000">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-llm-temperature">Temperature</label>
+                            <input type="number" id="edit-llm-temperature" value="0.1" min="0" max="2" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn" onclick="testLlmConnection('edit')">Test Connection</button>
+                        <span id="llm-test-result-edit" class="form-hint" style="margin-left: 12px;"></span>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 16px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="edit-auto-sync">
+                        Auto-sync issues from GitHub
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="edit-auto-start">
+                        Auto-start sessions for new issues
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="closeEditProjectModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/projects.js"></script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraClaude - Session Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">UltraClaude</span>
+            </div>
+            <nav class="nav-tabs">
+                <a href="/" class="nav-tab active">Sessions</a>
+                <a href="/projects" class="nav-tab">Projects</a>
+            </nav>
+            <div class="header-stats">
+                <span id="session-count">0 sessions</span>
+                <span class="separator">|</span>
+                <span id="attention-count">0 need attention</span>
+            </div>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="list" onclick="app.setView('list')">
+                    <span class="view-icon">☰</span> List
+                </button>
+                <button class="view-btn" data-view="kanban" onclick="app.setView('kanban')">
+                    <span class="view-icon">▦</span> Kanban
+                </button>
+            </div>
+            <button class="btn btn-primary" onclick="createSession()">
+                + New Session
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Sessions List View -->
+            <div class="sessions-panel" id="list-view">
+                <div class="panel-header">
+                    <h2>All Sessions</h2>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="running">Running</button>
+                        <button class="filter-btn" data-filter="needs_attention">Needs Attention</button>
+                    </div>
+                </div>
+                <div class="sessions-grid" id="sessions-grid">
+                    <!-- Session cards injected here -->
+                </div>
+            </div>
+
+            <!-- Kanban Board View -->
+            <div class="kanban-board" id="kanban-view" style="display: none;">
+                <div class="kanban-column" data-status="queued">
+                    <div class="kanban-column-header">
+                        <span class="column-title">Queued</span>
+                        <span class="column-count" id="kanban-count-queued">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-queued"></div>
+                </div>
+                <div class="kanban-column" data-status="running">
+                    <div class="kanban-column-header">
+                        <span class="column-title">Running</span>
+                        <span class="column-count" id="kanban-count-running">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-running"></div>
+                </div>
+                <div class="kanban-column" data-status="needs_attention">
+                    <div class="kanban-column-header">
+                        <span class="column-title">Needs Attention</span>
+                        <span class="column-count" id="kanban-count-needs_attention">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-needs_attention"></div>
+                </div>
+                <div class="kanban-column" data-status="completed">
+                    <div class="kanban-column-header">
+                        <span class="column-title">Completed</span>
+                        <span class="column-count" id="kanban-count-completed">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-completed"></div>
+                </div>
+            </div>
+
+            <!-- Active Session Terminal -->
+            <div class="terminal-panel" id="terminal-panel">
+                <div class="panel-header">
+                    <h2 id="active-session-title">Select a session</h2>
+                    <div class="terminal-controls">
+                        <button class="btn btn-small" onclick="clearTerminal()">Clear</button>
+                        <button class="btn btn-small btn-danger" onclick="stopActiveSession()">Stop</button>
+                        <button class="btn btn-small" onclick="app.toggleTerminal()" id="terminal-toggle" title="Hide Terminal">◀</button>
+                    </div>
+                </div>
+                <div class="terminal" id="terminal">
+                    <div class="terminal-output" id="terminal-output">
+                        <div class="placeholder">Click on a session card to view its output</div>
+                    </div>
+                    <div class="terminal-input-container">
+                        <span class="prompt">❯</span>
+                        <input type="text" class="terminal-input" id="terminal-input"
+                               placeholder="Type command and press Enter..."
+                               onkeypress="handleInput(event)">
+                        <button class="btn btn-primary" onclick="sendInput()">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating button to show terminal when hidden -->
+            <button class="terminal-show-btn" id="terminal-show-btn" onclick="app.toggleTerminal()" title="Show Terminal">
+                <span>▶</span> Terminal
+            </button>
+        </div>
+    </div>
+
+    <!-- New Session Modal -->
+    <div class="modal" id="new-session-modal">
+        <div class="modal-content">
+            <h3>Create New Session</h3>
+            <div class="form-group">
+                <label for="session-name">Session Name</label>
+                <input type="text" id="session-name" placeholder="e.g., Frontend, Backend, Tests...">
+            </div>
+            <div class="form-group">
+                <label for="session-dir">Working Directory</label>
+                <input type="text" id="session-dir" placeholder="/path/to/project">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmCreateSession()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" onclick="app.contextMenuSetParent()">
+            <span class="context-icon">↳</span> Set as Child of...
+        </div>
+        <div class="context-menu-item" onclick="app.contextMenuRemoveParent()">
+            <span class="context-icon">✕</span> Remove Parent
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="app.contextMenuComplete()">
+            <span class="context-icon">✓</span> Mark Complete
+        </div>
+        <div class="context-menu-item context-menu-danger" onclick="app.contextMenuStop()">
+            <span class="context-icon">■</span> Stop Session
+        </div>
+    </div>
+
+    <!-- Parent Selection Modal -->
+    <div class="modal" id="parent-select-modal">
+        <div class="modal-content">
+            <h3>Select Parent Session</h3>
+            <p class="modal-description">Choose which session this should be a child of:</p>
+            <div class="parent-options" id="parent-options">
+                <!-- Parent options injected here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="app.closeParentModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

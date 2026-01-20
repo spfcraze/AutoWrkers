@@ -1,0 +1,887 @@
+/* UltraClaude - Dark Theme Styles */
+:root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --border-color: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --accent-cyan: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-orange: #db6d28;
+    --accent-red: #f85149;
+    --accent-purple: #a371f7;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.logo-icon {
+    font-size: 24px;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-tab {
+    padding: 8px 16px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.nav-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.nav-tab.active {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.header-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.separator {
+    color: var(--border-color);
+}
+
+/* Buttons */
+.btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    background: var(--border-color);
+}
+
+.btn-primary {
+    background: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+    color: var(--bg-primary);
+}
+
+.btn-primary:hover {
+    background: #79b8ff;
+}
+
+.btn-danger {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+.btn-danger:hover {
+    background: var(--accent-red);
+    color: var(--text-primary);
+}
+
+.btn-small {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+/* Main Layout */
+.main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Sessions Panel */
+.sessions-panel {
+    width: 380px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.filter-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.filter-btn.active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Sessions Grid */
+.sessions-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Session Card */
+.session-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.session-card:hover {
+    border-color: var(--accent-cyan);
+}
+
+.session-card.active {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 1px var(--accent-cyan);
+}
+
+.session-card.needs-attention {
+    border-color: var(--accent-yellow);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(210, 153, 34, 0); }
+}
+
+.session-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.session-name {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.session-id {
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.status-running {
+    background: rgba(63, 185, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.status-needs_attention {
+    background: rgba(210, 153, 34, 0.2);
+    color: var(--accent-yellow);
+}
+
+.status-stopped {
+    background: rgba(139, 148, 158, 0.2);
+    color: var(--text-secondary);
+}
+
+.status-error {
+    background: rgba(248, 81, 73, 0.2);
+    color: var(--accent-red);
+}
+
+.status-starting {
+    background: rgba(163, 113, 247, 0.2);
+    color: var(--accent-purple);
+}
+
+.status-queued {
+    background: rgba(88, 166, 255, 0.2);
+    color: var(--accent-cyan);
+}
+
+.status-completed {
+    background: rgba(63, 185, 80, 0.3);
+    color: var(--accent-green);
+}
+
+/* Session Groups (Parent + Children) */
+.session-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.session-children {
+    margin-left: 20px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+/* Child Session Cards */
+.session-card-child {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    padding: 10px;
+    position: relative;
+}
+
+.session-card-child::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    background: var(--border-color);
+}
+
+.session-card-child.last-child .session-children {
+    border-left-color: transparent;
+}
+
+.session-card.queued {
+    border-style: dashed;
+    opacity: 0.8;
+}
+
+.child-indicator {
+    color: var(--accent-cyan);
+    font-size: 14px;
+    margin-right: 4px;
+}
+
+.parent-info {
+    font-size: 10px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+}
+
+.session-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.session-preview {
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 40px;
+}
+
+/* Terminal Panel */
+.terminal-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    transition: all 0.3s ease;
+    min-width: 400px;
+}
+
+.terminal-panel.hidden {
+    display: none;
+}
+
+.terminal-controls {
+    display: flex;
+    gap: 8px;
+}
+
+#terminal-toggle {
+    font-size: 10px;
+    padding: 4px 8px;
+}
+
+/* Floating button to show terminal */
+.terminal-show-btn {
+    display: none;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    padding: 12px 20px;
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    transition: all 0.2s;
+}
+
+.terminal-show-btn:hover {
+    background: #79b8ff;
+    transform: translateY(-2px);
+}
+
+.terminal-show-btn.visible {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.terminal {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.terminal-output {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--bg-secondary);
+}
+
+.terminal-output .placeholder {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.terminal-content {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.terminal-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+.prompt {
+    color: var(--accent-cyan);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    outline: none;
+}
+
+.terminal-input::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    width: 400px;
+    max-width: 90%;
+}
+
+.modal-content h3 {
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: var(--accent-cyan);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+/* Notification Dot */
+.notification-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-yellow);
+    border-radius: 50%;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* View Toggle */
+.view-toggle {
+    display: flex;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.view-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.view-btn:hover {
+    color: var(--text-primary);
+}
+
+.view-btn.active {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+}
+
+.view-icon {
+    font-size: 14px;
+}
+
+/* Kanban Board */
+.kanban-board {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    overflow-x: auto;
+    background: var(--bg-primary);
+}
+
+.kanban-column {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    max-height: calc(100vh - 120px);
+}
+
+.kanban-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.column-title {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.column-count {
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.kanban-cards {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Kanban Card */
+.kanban-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.kanban-card:hover {
+    border-color: var(--accent-cyan);
+    transform: translateY(-1px);
+}
+
+.kanban-card.active {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 1px var(--accent-cyan);
+}
+
+.kanban-card.dragging {
+    opacity: 0.5;
+    transform: rotate(3deg);
+}
+
+.kanban-card.drag-over {
+    border-color: var(--accent-green);
+    border-style: dashed;
+    border-width: 2px;
+}
+
+/* Column drag-over state */
+.kanban-column.column-drag-over {
+    background: var(--bg-tertiary);
+    box-shadow: inset 0 0 0 2px var(--accent-cyan);
+}
+
+.kanban-column.column-drag-over .kanban-column-header {
+    background: rgba(88, 166, 255, 0.1);
+}
+
+.kanban-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.kanban-card-name {
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.kanban-card-id {
+    font-size: 10px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.kanban-card-output {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Kanban Child Cards */
+.kanban-card-children {
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kanban-child-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 12px;
+}
+
+.kanban-child-card .kanban-card-name {
+    font-size: 12px;
+}
+
+/* Context Menu */
+.context-menu {
+    display: none;
+    position: fixed;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 0;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+}
+
+.context-menu.open {
+    display: block;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    transition: background 0.1s;
+}
+
+.context-menu-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.context-menu-item.context-menu-danger {
+    color: var(--accent-red);
+}
+
+.context-menu-item.context-menu-danger:hover {
+    background: rgba(248, 81, 73, 0.1);
+}
+
+.context-icon {
+    width: 16px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.context-menu-item.context-menu-danger .context-icon {
+    color: var(--accent-red);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 6px 0;
+}
+
+/* Parent Selection Modal */
+.modal-description {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.parent-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.parent-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.parent-option:hover {
+    border-color: var(--accent-cyan);
+}
+
+.parent-option-id {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.parent-option-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.parent-option-status {
+    font-size: 11px;
+}
