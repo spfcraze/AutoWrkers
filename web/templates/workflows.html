@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraClaude - Workflow Pipeline</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/workflow.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">UltraClaude</span>
+            </div>
+            <nav class="nav-tabs">
+                <a href="/" class="nav-tab">Sessions</a>
+                <a href="/projects" class="nav-tab">Projects</a>
+                <a href="/issues" class="nav-tab">Issues</a>
+                <a href="/workflows" class="nav-tab active">Workflows</a>
+            </nav>
+            <div class="header-stats">
+                <span id="workflow-count">0 workflows</span>
+                <span class="separator">|</span>
+                <span id="running-count">0 running</span>
+            </div>
+            <button class="btn btn-primary" onclick="workflowApp.openNewWorkflowModal()">
+                + New Workflow
+            </button>
+        </header>
+
+        <div class="main workflow-main">
+            <div class="workflow-sidebar">
+                <div class="panel-header">
+                    <h2>Executions</h2>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all" onclick="workflowApp.filterExecutions('all')">All</button>
+                        <button class="filter-btn" data-filter="running" onclick="workflowApp.filterExecutions('running')">Running</button>
+                        <button class="filter-btn" data-filter="completed" onclick="workflowApp.filterExecutions('completed')">Done</button>
+                    </div>
+                </div>
+                <div class="execution-list" id="execution-list"></div>
+            </div>
+
+            <div class="workflow-content">
+                <div class="pipeline-header" id="pipeline-header">
+                    <div class="pipeline-info">
+                        <h2 id="pipeline-title">Select a workflow</h2>
+                        <span class="pipeline-status" id="pipeline-status"></span>
+                    </div>
+                    <div class="pipeline-actions" id="pipeline-actions"></div>
+                </div>
+                
+                <div class="pipeline-view" id="pipeline-view">
+                    <div class="pipeline-placeholder">
+                        <div class="placeholder-icon">⚙</div>
+                        <p>Select a workflow execution to view its pipeline</p>
+                        <p class="placeholder-hint">or create a new workflow to get started</p>
+                    </div>
+                </div>
+
+                <div class="budget-bar" id="budget-bar">
+                    <div class="budget-label">Budget</div>
+                    <div class="budget-progress">
+                        <div class="budget-fill" id="budget-fill"></div>
+                    </div>
+                    <div class="budget-text" id="budget-text">$0.00</div>
+                </div>
+            </div>
+
+            <div class="workflow-details" id="workflow-details">
+                <div class="details-header">
+                    <h3>Details</h3>
+                    <button class="btn btn-small" onclick="workflowApp.closeDetails()">×</button>
+                </div>
+                <div class="details-content" id="details-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="new-workflow-modal">
+        <div class="modal-content modal-large">
+            <h3>Create New Workflow</h3>
+            <div class="form-group">
+                <label for="workflow-task">Task Description</label>
+                <textarea id="workflow-task" rows="3" placeholder="Describe what you want to accomplish..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="workflow-path">Project Path</label>
+                <div class="input-with-button">
+                    <input type="text" id="workflow-path" placeholder="/path/to/project">
+                    <button type="button" class="btn" onclick="workflowApp.openBrowseModal()">Browse</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="workflow-template">Template</label>
+                <select id="workflow-template">
+                    <option value="">Loading templates...</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="workflow-budget">Budget Limit ($)</label>
+                    <input type="number" id="workflow-budget" placeholder="No limit" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="workflow-interactive">
+                        Interactive Mode (pause for approval)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="workflowApp.closeNewWorkflowModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="workflowApp.createWorkflow()">Create & Run</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="artifact-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="artifact-title">Artifact</h3>
+                <button class="btn btn-small" onclick="workflowApp.closeArtifactModal()">×</button>
+            </div>
+            <div class="artifact-content" id="artifact-content"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="browse-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Select Project Directory</h3>
+                <button class="btn btn-small" onclick="workflowApp.closeBrowseModal()">×</button>
+            </div>
+            <div class="browse-path-bar">
+                <button class="btn btn-small" onclick="workflowApp.browseUp()">↑ Up</button>
+                <span class="browse-current-path" id="browse-current-path">~</span>
+            </div>
+            <div class="browse-list" id="browse-list"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="workflowApp.closeBrowseModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="workflowApp.selectCurrentPath()">Select This Directory</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/workflow.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Callable, List, Any
+from typing import Optional, Callable, List, Any, Awaitable
 
 
 class SessionStatus(Enum):
@@ -21,6 +21,18 @@ class SessionStatus(Enum):
     ERROR = "error"
     QUEUED = "queued"      # Waiting for parent session to complete
     COMPLETED = "completed" # Session finished its task
+
+
+# Completion signal patterns Claude types when done with task
+# These must be on their own line or followed by whitespace/newline
+COMPLETION_PATTERNS = [
+    "/complete\n",
+    "/complete ",
+    "/complete\r",
+    "/done\n",
+    "/done ",
+    "/done\r",
+]
 
 
 # Data directory for persistence
@@ -42,9 +54,10 @@ class Session:
     parent_id: Optional[int] = None  # ID of parent session to wait for
     initial_prompt: Optional[str] = None  # Prompt to send when session starts
     llm_provider_type: str = "claude_code"  # claude_code, ollama, lm_studio, openrouter
-    _reader_task: Optional[asyncio.Task] = field(default=None, repr=False)
+    _reader_task: Optional["asyncio.Task[None]"] = field(default=None, repr=False)
     _last_line_count: int = field(default=0, repr=False)
     _llm_provider: Optional[Any] = field(default=None, repr=False)  # LLMProvider instance for local LLMs
+    _llm_config: Optional[Any] = field(default=None, repr=False)  # LLMProviderConfig for local LLMs
 
     def to_dict(self):
         return {
@@ -89,6 +102,7 @@ class SessionManager:
         self._output_callbacks: list[Callable] = []
         self._status_callbacks: list[Callable] = []
         self._session_created_callbacks: list[Callable] = []
+        self._completion_callbacks: list[Callable[[int], Awaitable[None]]] = []
         self._lock = threading.Lock()
 
         # Ensure data directory exists
@@ -180,6 +194,10 @@ class SessionManager:
     def add_session_created_callback(self, callback: Callable):
         self._session_created_callbacks.append(callback)
 
+    def add_completion_callback(self, callback: Callable[[int], Awaitable[None]]):
+        """Register callback for when session completes via /complete signal"""
+        self._completion_callbacks.append(callback)
+
     async def _notify_output(self, session_id: int, data: str):
         for callback in self._output_callbacks:
             try:
@@ -210,14 +228,21 @@ class SessionManager:
             except Exception as e:
                 print(f"Session created callback error: {e}")
 
+    async def _notify_completion(self, session_id: int):
+        for callback in self._completion_callbacks:
+            try:
+                await callback(session_id)
+            except Exception as e:
+                print(f"Completion callback error: {e}")
+
     def create_session(
         self,
-        name: str = None,
-        working_dir: str = None,
-        parent_id: int = None,
-        initial_prompt: str = None,
+        name: Optional[str] = None,
+        working_dir: Optional[str] = None,
+        parent_id: Optional[int] = None,
+        initial_prompt: Optional[str] = None,
         llm_provider_type: str = "claude_code",
-        llm_config: Any = None,  # LLMProviderConfig for local LLMs
+        llm_config: Optional[Any] = None,
     ) -> Session:
         with self._lock:
             session_id = self._next_id
@@ -244,8 +269,7 @@ class SessionManager:
         # Determine initial status
         if parent_id is not None:
             parent = self.sessions.get(parent_id)
-            # If parent is still running, this session is queued
-            if parent.status in (SessionStatus.STARTING, SessionStatus.RUNNING, SessionStatus.NEEDS_ATTENTION):
+            if parent is not None and parent.status in (SessionStatus.STARTING, SessionStatus.RUNNING, SessionStatus.NEEDS_ATTENTION):
                 initial_status = SessionStatus.QUEUED
             else:
                 initial_status = SessionStatus.STARTING
@@ -474,7 +498,7 @@ class SessionManager:
                 session.status = SessionStatus.STARTING
                 await self.start_session(session)
 
-    def get_queued_sessions(self, parent_id: int = None) -> list:
+    def get_queued_sessions(self, parent_id: Optional[int] = None) -> List[Session]:
         """Get all queued sessions, optionally filtered by parent"""
         sessions = [s for s in self.sessions.values() if s.status == SessionStatus.QUEUED]
         if parent_id is not None:
@@ -530,6 +554,14 @@ class SessionManager:
                             # Keep buffer manageable
                             if len(session.output_buffer) > 1000:
                                 session.output_buffer = session.output_buffer[-500:]
+
+                            # Check for completion signal from Claude
+                            recent_content = content[-1000:]
+                            if any(pattern in recent_content for pattern in COMPLETION_PATTERNS):
+                                print(f"[INFO] Completion signal detected in session {session.id}")
+                                await self.mark_session_completed(session.id)
+                                await self._notify_completion(session.id)
+                                break
 
                             # Check for input indicators
                             old_needs_input = session.needs_input
@@ -687,7 +719,7 @@ class SessionManager:
     def get_sessions_needing_attention(self) -> list[Session]:
         return [s for s in self.sessions.values() if s.status == SessionStatus.NEEDS_ATTENTION]
 
-    async def update_session_parent(self, session_id: int, parent_id: int = None) -> bool:
+    async def update_session_parent(self, session_id: int, parent_id: Optional[int] = None) -> bool:
         """Update a session's parent, used for Kanban drag & drop"""
         session = self.sessions.get(session_id)
         if not session:

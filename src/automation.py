@@ -1,7 +1,3 @@
-"""
-Automation Controller for UltraClaude GitHub Integration
-Handles the automation loop, verification, and PR creation
-"""
 import asyncio
 import subprocess
 import re
@@ -10,6 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, List, Any, Tuple
 from pathlib import Path
 
+from .logging_config import get_logger
 from .models import (
     project_manager, issue_session_manager,
     Project, IssueSession, IssueSessionStatus, ProjectStatus,
@@ -17,6 +14,8 @@ from .models import (
 )
 from .session_manager import manager as session_manager, SessionStatus
 from .github_client import get_github_client, GitHubError
+
+logger = get_logger("ultraclaude.automation")
 
 
 class IssueFixDetector:
@@ -114,6 +113,55 @@ class IssueFixDetector:
             return True, f"Fix branch exists: {branch_name}"
 
         return False, ""
+
+
+class IssueComplexityAnalyzer:
+    """Analyzes issue complexity to determine if it's suitable for automation"""
+
+    COMPLEXITY_WEIGHTS = {
+        "file_count": 2,
+        "body_length": 1,
+        "code_blocks": 3,
+        "label_penalty": 5,
+    }
+
+    COMPLEX_LABELS = ["complex", "needs-discussion", "breaking-change", "architecture", "security"]
+
+    @classmethod
+    def analyze(cls, issue_session: IssueSession) -> Tuple[int, str]:
+        """Returns (complexity_score, explanation). Higher = more complex."""
+        score = 0
+        reasons = []
+
+        body = issue_session.github_issue_body or ""
+        
+        file_refs = ContextBuilder.extract_file_references(body)
+        if len(file_refs) > 3:
+            score += len(file_refs) * cls.COMPLEXITY_WEIGHTS["file_count"]
+            reasons.append(f"{len(file_refs)} files mentioned")
+
+        if len(body) > 2000:
+            score += (len(body) // 1000) * cls.COMPLEXITY_WEIGHTS["body_length"]
+            reasons.append(f"long description ({len(body)} chars)")
+
+        code_blocks = body.count("```")
+        if code_blocks > 4:
+            score += code_blocks * cls.COMPLEXITY_WEIGHTS["code_blocks"]
+            reasons.append(f"{code_blocks // 2} code blocks")
+
+        for label in issue_session.github_issue_labels:
+            if label.lower() in cls.COMPLEX_LABELS:
+                score += cls.COMPLEXITY_WEIGHTS["label_penalty"]
+                reasons.append(f"'{label}' label")
+
+        explanation = ", ".join(reasons) if reasons else "standard issue"
+        return score, explanation
+
+    @classmethod
+    def is_too_complex(cls, issue_session: IssueSession, threshold: int = 20) -> Tuple[bool, int, str]:
+        """Check if issue is too complex for automation"""
+        score, explanation = cls.analyze(issue_session)
+        return score >= threshold, score, explanation
 
 
 class ContextBuilder:
@@ -457,12 +505,80 @@ This PR addresses the issue: **{issue_session.github_issue_title}**
 class AutomationController:
     """Main automation controller"""
 
-    MAX_LOG_ENTRIES = 100  # Keep last 100 log entries per project
+    MAX_LOG_ENTRIES = 100
 
     def __init__(self):
         self._running_projects: Dict[int, asyncio.Task] = {}
         self._project_status: Dict[int, Dict] = {}
         self._project_logs: Dict[int, List[Dict]] = {}
+        self._event_callbacks: List[Any] = []
+        self._setup_completion_callback()
+
+    def add_event_callback(self, callback):
+        self._event_callbacks.append(callback)
+
+    async def recover_interrupted_sessions(self):
+        """Recover issue sessions that were interrupted by server restart"""
+        recovered = 0
+        for project in project_manager.get_all():
+            in_progress = issue_session_manager.get_in_progress(project.id)
+            for issue_session in in_progress:
+                if issue_session.status == IssueSessionStatus.IN_PROGRESS:
+                    uc_session = session_manager.get_session(issue_session.session_id) if issue_session.session_id else None
+                    
+                    if not uc_session or uc_session.status == SessionStatus.STOPPED:
+                        print(f"[Recovery] Issue #{issue_session.github_issue_number} was interrupted, marking for retry")
+                        issue_session_manager.update(
+                            issue_session.id,
+                            status=IssueSessionStatus.PENDING,
+                            last_error="Session interrupted by server restart - will retry"
+                        )
+                        recovered += 1
+                    else:
+                        print(f"[Recovery] Issue #{issue_session.github_issue_number} session still active")
+                        
+                elif issue_session.status == IssueSessionStatus.VERIFYING:
+                    print(f"[Recovery] Issue #{issue_session.github_issue_number} was verifying, resetting to in_progress")
+                    issue_session_manager.update(
+                        issue_session.id,
+                        status=IssueSessionStatus.PENDING,
+                        last_error="Verification interrupted - will retry"
+                    )
+                    recovered += 1
+        
+        if recovered:
+            print(f"[Recovery] Recovered {recovered} interrupted issue sessions")
+
+    async def _emit_event(self, event_type: str, data: Dict):
+        for callback in self._event_callbacks:
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(event_type, data)
+                else:
+                    callback(event_type, data)
+            except Exception as e:
+                print(f"[Automation] Event callback error: {e}")
+
+    def _setup_completion_callback(self):
+        """Register callback to handle session completion signals"""
+        async def on_session_completed(session_id: int):
+            await self._handle_session_completion_signal(session_id)
+        session_manager.add_completion_callback(on_session_completed)
+
+    async def _handle_session_completion_signal(self, session_id: int):
+        """Handle immediate completion when Claude signals /complete"""
+        issue_session = issue_session_manager.get_by_session_id(session_id)
+        if not issue_session:
+            print(f"[Automation] No issue session found for session {session_id}")
+            return
+
+        project = project_manager.get(issue_session.project_id)
+        if not project:
+            print(f"[Automation] No project found for issue session {issue_session.id}")
+            return
+
+        self._log(project.id, f"Completion signal received for issue #{issue_session.github_issue_number}")
+        await self._handle_completed_session(project, issue_session)
 
     def _log(self, project_id: int, message: str, level: str = "info"):
         """Add a log entry for a project"""
@@ -628,7 +744,6 @@ class AutomationController:
             self._log(issue_session.project_id, f"Project not found for issue #{issue_session.github_issue_number}", "error")
             return
 
-        # Safety check: verify issue hasn't already been worked on
         already_worked, reason = IssueFixDetector.is_issue_already_worked_on(
             project.working_dir, issue_session.github_issue_number
         )
@@ -638,6 +753,16 @@ class AutomationController:
                 issue_session.id,
                 status=IssueSessionStatus.SKIPPED,
                 last_error=f"Already worked on: {reason}"
+            )
+            return
+
+        too_complex, score, explanation = IssueComplexityAnalyzer.is_too_complex(issue_session)
+        if too_complex:
+            self._log(project.id, f"Issue #{issue_session.github_issue_number} too complex (score={score}): {explanation}", "warn")
+            issue_session_manager.update(
+                issue_session.id,
+                status=IssueSessionStatus.NEEDS_REVIEW,
+                last_error=f"Complexity score {score}: {explanation}"
             )
             return
 
@@ -720,6 +845,14 @@ class AutomationController:
             await session_manager.start_session(session)
             self._log(project.id, f"Session {session.id} started successfully!")
 
+            await self._emit_event("issue_started", {
+                "project_id": project.id,
+                "issue_session_id": issue_session.id,
+                "issue_number": issue_session.github_issue_number,
+                "issue_title": issue_session.github_issue_title,
+                "session_id": session.id
+            })
+
             # Update project status
             if issue_session.project_id in self._project_status:
                 self._project_status[issue_session.project_id]["issues_processed"] += 1
@@ -756,20 +889,32 @@ class AutomationController:
 
     async def _handle_completed_session(self, project: Project, issue_session: IssueSession):
         """Handle a completed UltraClaude session"""
+        if issue_session.status not in (IssueSessionStatus.IN_PROGRESS, IssueSessionStatus.VERIFICATION_FAILED):
+            print(f"[Automation] Session {issue_session.id} already being handled (status={issue_session.status})")
+            return
+
         print(f"[Automation] Session {issue_session.id} completed, running verification")
 
-        # Update status to verifying
         issue_session_manager.update(issue_session.id, status=IssueSessionStatus.VERIFYING)
 
-        # Run verification
-        results = await VerificationRunner.run_verification(project, issue_session)
+        await self._emit_event("verification_started", {
+            "project_id": project.id,
+            "issue_session_id": issue_session.id,
+            "issue_number": issue_session.github_issue_number
+        })
 
+        results = await VerificationRunner.run_verification(project, issue_session)
         all_passed = all(r.passed for r in results)
 
         if all_passed:
             print(f"[Automation] Verification passed for issue #{issue_session.github_issue_number}")
 
-            # Create PR
+            await self._emit_event("verification_passed", {
+                "project_id": project.id,
+                "issue_session_id": issue_session.id,
+                "issue_number": issue_session.github_issue_number
+            })
+
             pr_result = await PRCreator.create_pr(project, issue_session)
 
             if pr_result:
@@ -782,6 +927,14 @@ class AutomationController:
                 if issue_session.project_id in self._project_status:
                     self._project_status[issue_session.project_id]["issues_completed"] += 1
 
+                await self._emit_event("pr_created", {
+                    "project_id": project.id,
+                    "issue_session_id": issue_session.id,
+                    "issue_number": issue_session.github_issue_number,
+                    "pr_number": pr_result["number"],
+                    "pr_url": pr_result["url"]
+                })
+
                 print(f"[Automation] PR created: {pr_result['url']}")
             else:
                 issue_session_manager.update(
@@ -790,24 +943,28 @@ class AutomationController:
                     last_error="Failed to create pull request"
                 )
         else:
-            # Verification failed
             failed_checks = [r.check_type for r in results if not r.passed]
             error_msg = f"Verification failed: {', '.join(failed_checks)}"
 
             print(f"[Automation] Verification failed for issue #{issue_session.github_issue_number}: {error_msg}")
 
+            await self._emit_event("verification_failed", {
+                "project_id": project.id,
+                "issue_session_id": issue_session.id,
+                "issue_number": issue_session.github_issue_number,
+                "failed_checks": failed_checks,
+                "attempt": issue_session.attempts,
+                "max_attempts": issue_session.max_attempts
+            })
+
             if issue_session.attempts < issue_session.max_attempts:
-                # Retry
                 issue_session_manager.update(
                     issue_session.id,
                     status=IssueSessionStatus.VERIFICATION_FAILED,
                     last_error=error_msg
                 )
-
-                # Send feedback to session and retry
                 await self._retry_with_feedback(project, issue_session, results)
             else:
-                # Max attempts reached
                 issue_session_manager.update(
                     issue_session.id,
                     status=IssueSessionStatus.FAILED,
@@ -817,7 +974,13 @@ class AutomationController:
                 if issue_session.project_id in self._project_status:
                     self._project_status[issue_session.project_id]["issues_failed"] += 1
 
-                # Comment on issue about failure
+                await self._emit_event("issue_failed", {
+                    "project_id": project.id,
+                    "issue_session_id": issue_session.id,
+                    "issue_number": issue_session.github_issue_number,
+                    "error": error_msg
+                })
+
                 try:
                     client = get_github_client(project.get_token())
                     await client.create_issue_comment(

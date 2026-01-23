@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UltraClaude - Session Manager</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -17,6 +18,8 @@
             <nav class="nav-tabs">
                 <a href="/" class="nav-tab active">Sessions</a>
                 <a href="/projects" class="nav-tab">Projects</a>
+                <a href="/issues" class="nav-tab">Issues</a>
+                <a href="/workflows" class="nav-tab">Workflows</a>
             </nav>
             <div class="header-stats">
                 <span id="session-count">0 sessions</span>
@@ -88,8 +91,22 @@
             <!-- Active Session Terminal -->
             <div class="terminal-panel" id="terminal-panel">
                 <div class="panel-header">
-                    <h2 id="active-session-title">Select a session</h2>
+                    <div class="terminal-title-container">
+                        <h2 id="active-session-title">Select a session</h2>
+                        <span class="streaming-indicator" id="streaming-indicator" title="Receiving output">
+                            <span class="streaming-dot"></span>
+                            <span class="streaming-text">Live</span>
+                            <span class="streaming-time" id="streaming-time"></span>
+                        </span>
+                        <span class="output-stats" id="output-stats"></span>
+                    </div>
                     <div class="terminal-controls">
+                        <button class="btn btn-small btn-review" id="review-btn" onclick="app.openReviewModal()" title="Run Multi-LLM Review">
+                            <span>⚡</span> Review
+                        </button>
+                        <button class="btn btn-small" id="autoscroll-btn" onclick="app.toggleAutoScroll()" title="Auto-scroll enabled">
+                            <span class="autoscroll-icon">⬇</span> Auto
+                        </button>
                         <button class="btn btn-small" onclick="clearTerminal()">Clear</button>
                         <button class="btn btn-small btn-danger" onclick="stopActiveSession()">Stop</button>
                         <button class="btn btn-small" onclick="app.toggleTerminal()" id="terminal-toggle" title="Hide Terminal">◀</button>
@@ -98,6 +115,9 @@
                 <div class="terminal" id="terminal">
                     <div class="terminal-output" id="terminal-output">
                         <div class="placeholder">Click on a session card to view its output</div>
+                    </div>
+                    <div class="new-output-indicator" id="new-output-indicator" onclick="app.scrollToBottom()">
+                        ↓ New output below
                     </div>
                     <div class="terminal-input-container">
                         <span class="prompt">❯</span>
@@ -162,6 +182,32 @@
             </div>
             <div class="modal-actions">
                 <button class="btn" onclick="app.closeParentModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-LLM Review Modal -->
+    <div class="modal" id="review-modal">
+        <div class="modal-content" style="width: 500px;">
+            <h3>Run Multi-LLM Review</h3>
+            <p class="modal-description">Run a multi-model review pipeline on this session's work.</p>
+            <div class="form-group">
+                <label for="review-template">Review Template</label>
+                <select id="review-template">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="review-task">Review Focus (optional)</label>
+                <textarea id="review-task" rows="2" placeholder="What should reviewers focus on? Leave blank for general review."></textarea>
+            </div>
+            <div class="review-info" id="review-info">
+                <div class="review-info-title">Pipeline Preview</div>
+                <div class="review-phases" id="review-phases"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="app.closeReviewModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.startReview()">Start Review</button>
             </div>
         </div>
     </div>

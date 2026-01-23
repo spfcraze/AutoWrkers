@@ -112,7 +112,7 @@ class LLMProvider(ABC):
         self._last_output: str = ""
 
     @abstractmethod
-    async def start(self, initial_prompt: str = None) -> bool:
+    async def start(self, initial_prompt: Optional[str] = None) -> bool:
         """
         Start a new LLM session.
 
@@ -214,7 +214,7 @@ class ClaudeCodeProvider(LLMProvider):
         self.session_id: Optional[int] = None
         self.tmux_session: Optional[str] = None
 
-    async def start(self, initial_prompt: str = None) -> bool:
+    async def start(self, initial_prompt: Optional[str] = None) -> bool:
         """
         Start is handled by session_manager.py for Claude Code.
         This method is called after the session is created.

@@ -4,12 +4,46 @@ This guide covers the complete installation process for UltraClaude on different
 
 ## Table of Contents
 
+- [Quick Install](#quick-install)
 - [System Requirements](#system-requirements)
 - [Linux Installation](#linux-installation)
 - [macOS Installation](#macos-installation)
 - [Windows (WSL) Installation](#windows-wsl-installation)
 - [Docker Installation](#docker-installation)
+- [Running as a Service](#running-as-a-service)
 - [Verifying Installation](#verifying-installation)
+
+---
+
+## Quick Install
+
+The fastest way to get started is using our automated install script:
+
+### One-Line Install (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/ultraclaude/main/install.sh | bash
+```
+
+### What the Script Does
+
+1. Detects your operating system (Debian, Fedora, Arch, macOS)
+2. Installs system dependencies (Python, Git, tmux, Node.js)
+3. Optionally installs Claude Code CLI
+4. Clones the repository
+5. Creates a Python virtual environment
+6. Installs all Python dependencies
+7. Creates a `start.sh` script for easy launching
+8. Optionally creates a systemd service for auto-start
+
+### After Installation
+
+```bash
+cd ~/ultraclaude
+./start.sh
+```
+
+Then open http://localhost:8420 in your browser.
 
 ---
 
@@ -18,7 +52,7 @@ This guide covers the complete installation process for UltraClaude on different
 ### Minimum Requirements
 
 - **OS**: Linux, macOS, or Windows with WSL2
-- **Python**: 3.9 or higher
+- **Python**: 3.10 or higher (3.11+ recommended)
 - **RAM**: 4GB minimum (8GB+ recommended for local LLMs)
 - **Disk**: 500MB for application + space for repositories
 - **Network**: Internet access for GitHub integration
@@ -27,11 +61,20 @@ This guide covers the complete installation process for UltraClaude on different
 
 | Software | Version | Purpose |
 |----------|---------|---------|
-| Python | 3.9+ | Core application |
+| Python | 3.10+ | Core application |
 | pip | Latest | Package management |
 | Git | 2.0+ | Repository operations |
 | tmux | 3.0+ | Claude Code session management |
 | Node.js | 18+ | Claude Code CLI (optional) |
+
+### Optional Software (for Multi-LLM Workflows)
+
+| Software | Purpose |
+|----------|---------|
+| Ollama | Local LLM execution |
+| LM Studio | Local LLM with GUI |
+| Google Gemini API | Cloud LLM for workflows |
+| OpenAI API | GPT-4 for workflows |
 
 ---
 
@@ -299,6 +342,63 @@ docker run -d \
 
 ---
 
+## Running as a Service
+
+### Linux (systemd)
+
+The install script creates a systemd service file. To enable it:
+
+```bash
+# Enable auto-start on boot
+sudo systemctl enable ultraclaude
+
+# Start the service
+sudo systemctl start ultraclaude
+
+# Check status
+sudo systemctl status ultraclaude
+
+# View logs
+journalctl -u ultraclaude -f
+```
+
+### macOS (launchd)
+
+Create `~/Library/LaunchAgents/com.ultraclaude.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ultraclaude</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>cd ~/ultraclaude && ./start.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/ultraclaude.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/ultraclaude.err</string>
+</dict>
+</plist>
+```
+
+Then enable:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.ultraclaude.plist
+```
+
+---
+
 ## Verifying Installation
 
 ### 1. Check Python Environment
@@ -430,7 +530,8 @@ After successful installation:
 
 1. [Configure GitHub Tokens](CONFIGURATION.md#github-token-setup)
 2. [Create Your First Project](CONFIGURATION.md#creating-a-project)
-3. [Set Up Local LLMs](CONFIGURATION.md#local-llm-configuration) (optional)
+3. [Set Up Multi-LLM Workflows](WORKFLOWS.md) (optional)
+4. [Set Up Local LLMs](CONFIGURATION.md#local-llm-configuration) (optional)
 
 ---
 

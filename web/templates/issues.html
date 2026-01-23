@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraClaude - Issues</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/issues.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">UltraClaude</span>
+                </a>
+            </div>
+            <nav class="nav-tabs">
+                <a href="/" class="nav-tab">Sessions</a>
+                <a href="/projects" class="nav-tab">Projects</a>
+                <a href="/issues" class="nav-tab">Issues</a>
+                <a href="/workflows" class="nav-tab">Workflows</a>
+            </nav>
+            <div class="header-stats">
+                <span id="issue-stats">Loading...</span>
+            </div>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="pipeline" onclick="issuesManager.setView('pipeline')">
+                    <span class="view-icon">▦</span> Pipeline
+                </button>
+                <button class="view-btn" data-view="list" onclick="issuesManager.setView('list')">
+                    <span class="view-icon">☰</span> List
+                </button>
+            </div>
+        </header>
+
+        <div class="issues-main">
+            <div class="pipeline-view" id="pipeline-view">
+                <div class="pipeline-column" data-status="pending">
+                    <div class="pipeline-header">
+                        <span class="pipeline-title">📋 Pending</span>
+                        <span class="pipeline-count" id="count-pending">0</span>
+                    </div>
+                    <div class="pipeline-cards" id="cards-pending"></div>
+                </div>
+                <div class="pipeline-column" data-status="in_progress">
+                    <div class="pipeline-header">
+                        <span class="pipeline-title">🔄 In Progress</span>
+                        <span class="pipeline-count" id="count-in_progress">0</span>
+                    </div>
+                    <div class="pipeline-cards" id="cards-in_progress"></div>
+                </div>
+                <div class="pipeline-column" data-status="verifying">
+                    <div class="pipeline-header">
+                        <span class="pipeline-title">🧪 Verifying</span>
+                        <span class="pipeline-count" id="count-verifying">0</span>
+                    </div>
+                    <div class="pipeline-cards" id="cards-verifying"></div>
+                </div>
+                <div class="pipeline-column" data-status="pr_created">
+                    <div class="pipeline-header">
+                        <span class="pipeline-title">✅ PR Created</span>
+                        <span class="pipeline-count" id="count-pr_created">0</span>
+                    </div>
+                    <div class="pipeline-cards" id="cards-pr_created"></div>
+                </div>
+                <div class="pipeline-column" data-status="failed">
+                    <div class="pipeline-header">
+                        <span class="pipeline-title">❌ Failed</span>
+                        <span class="pipeline-count" id="count-failed">0</span>
+                    </div>
+                    <div class="pipeline-cards" id="cards-failed"></div>
+                </div>
+            </div>
+
+            <div class="list-view" id="list-view" style="display: none;">
+                <div class="list-header">
+                    <div class="list-filters">
+                        <button class="filter-btn active" data-filter="all" onclick="issuesManager.setFilter('all')">All</button>
+                        <button class="filter-btn" data-filter="pending" onclick="issuesManager.setFilter('pending')">Pending</button>
+                        <button class="filter-btn" data-filter="in_progress" onclick="issuesManager.setFilter('in_progress')">In Progress</button>
+                        <button class="filter-btn" data-filter="verifying" onclick="issuesManager.setFilter('verifying')">Verifying</button>
+                        <button class="filter-btn" data-filter="pr_created" onclick="issuesManager.setFilter('pr_created')">PR Created</button>
+                        <button class="filter-btn" data-filter="failed" onclick="issuesManager.setFilter('failed')">Failed</button>
+                    </div>
+                    <input type="text" class="search-input" id="search-input" placeholder="Search issues..." oninput="issuesManager.handleSearch(this.value)">
+                </div>
+                <div class="list-content" id="list-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="issue-detail-modal">
+        <div class="modal-content modal-large">
+            <div id="issue-detail-content"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeIssueModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/issues.js"></script>
+</body>
+</html>

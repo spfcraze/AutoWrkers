@@ -1,6 +1,3 @@
-"""
-FastAPI WebSocket server for real-time session monitoring
-"""
 import asyncio
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
@@ -10,12 +7,17 @@ from fastapi.responses import HTMLResponse
 from typing import Set, Optional, List
 from pydantic import BaseModel
 
+from .logging_config import setup_logging, get_logger
 from .session_manager import manager, SessionStatus
 from .models import (
     project_manager, issue_session_manager,
     Project, IssueSession, IssueSessionStatus, ProjectStatus, IssueFilter
 )
 from .github_client import get_github_client, GitHubError, GitHubAuthError, GitHubNotFoundError
+from .workflow.api import router as workflow_router
+
+setup_logging()
+logger = get_logger("ultraclaude.server")
 
 app = FastAPI(title="UltraClaude", version="0.1.0")
 
@@ -25,6 +27,8 @@ WEB_DIR = BASE_DIR / "web"
 
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=WEB_DIR / "templates")
+
+app.include_router(workflow_router)
 
 
 class ConnectionManager:
@@ -85,10 +89,96 @@ manager.add_status_callback(on_status_change)
 manager.add_session_created_callback(on_session_created)
 
 
+async def on_automation_event(event_type: str, data: dict):
+    await ws_manager.broadcast({
+        "type": "automation_event",
+        "event": event_type,
+        "data": data
+    })
+
+
+from .automation import automation_controller
+automation_controller.add_event_callback(on_automation_event)
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Start output readers for any reconnected tmux sessions"""
+    """Recover state and start output readers for any reconnected tmux sessions"""
     await manager.start_output_readers()
+    await automation_controller.recover_interrupted_sessions()
+    
+    from .workflow.engine import workflow_orchestrator
+    await workflow_orchestrator.recover_interrupted_executions()
+
+
+@app.get("/health")
+async def health_check():
+    import shutil
+    
+    tmux_available = shutil.which("tmux") is not None
+    
+    try:
+        sessions = manager.get_all_sessions()
+        session_manager_ok = True
+        active_sessions = len([s for s in sessions if s.status == SessionStatus.RUNNING])
+        total_sessions = len(sessions)
+    except Exception:
+        session_manager_ok = False
+        active_sessions = 0
+        total_sessions = 0
+    
+    try:
+        projects = project_manager.get_all()
+        project_manager_ok = True
+        total_projects = len(projects)
+    except Exception:
+        project_manager_ok = False
+        total_projects = 0
+    
+    try:
+        issue_sessions = list(issue_session_manager.sessions.values())
+        issue_session_manager_ok = True
+        pending_issues = len([s for s in issue_sessions if s.status == IssueSessionStatus.PENDING])
+        in_progress_issues = len([s for s in issue_sessions if s.status == IssueSessionStatus.IN_PROGRESS])
+    except Exception:
+        issue_session_manager_ok = False
+        pending_issues = 0
+        in_progress_issues = 0
+    
+    automation_ok = automation_controller is not None
+    
+    all_ok = all([
+        tmux_available,
+        session_manager_ok,
+        project_manager_ok,
+        issue_session_manager_ok,
+        automation_ok
+    ])
+    
+    return {
+        "status": "healthy" if all_ok else "degraded",
+        "components": {
+            "tmux": {"status": "ok" if tmux_available else "error", "available": tmux_available},
+            "session_manager": {
+                "status": "ok" if session_manager_ok else "error",
+                "active_sessions": active_sessions,
+                "total_sessions": total_sessions
+            },
+            "project_manager": {
+                "status": "ok" if project_manager_ok else "error",
+                "total_projects": total_projects
+            },
+            "issue_session_manager": {
+                "status": "ok" if issue_session_manager_ok else "error",
+                "pending_issues": pending_issues,
+                "in_progress_issues": in_progress_issues
+            },
+            "automation_controller": {
+                "status": "ok" if automation_ok else "error"
+            }
+        },
+        "websocket_connections": len(ws_manager.active_connections)
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -309,11 +399,58 @@ class LLMTestRequest(BaseModel):
 
 @app.get("/projects", response_class=HTMLResponse)
 async def projects_page(request: Request):
-    """Render projects page"""
     return templates.TemplateResponse("projects.html", {
         "request": request,
         "projects": [p.to_dict() for p in project_manager.get_all()]
     })
+
+
+@app.get("/issues", response_class=HTMLResponse)
+async def issues_page(request: Request):
+    return templates.TemplateResponse("issues.html", {"request": request})
+
+
+@app.get("/workflows", response_class=HTMLResponse)
+async def workflows_page(request: Request):
+    return templates.TemplateResponse("workflows.html", {"request": request})
+
+
+@app.get("/api/browse-dirs")
+async def browse_directories(path: str = "~"):
+    import os
+    
+    if path == "~":
+        path = os.path.expanduser("~")
+    
+    path = os.path.abspath(path)
+    
+    if not os.path.exists(path):
+        return {"error": "Path does not exist", "path": path, "dirs": [], "parent": None}
+    
+    if not os.path.isdir(path):
+        path = os.path.dirname(path)
+    
+    try:
+        entries = os.listdir(path)
+    except PermissionError:
+        return {"error": "Permission denied", "path": path, "dirs": [], "parent": os.path.dirname(path)}
+    
+    dirs = []
+    for entry in sorted(entries):
+        if entry.startswith('.'):
+            continue
+        full_path = os.path.join(path, entry)
+        if os.path.isdir(full_path):
+            is_git = os.path.isdir(os.path.join(full_path, ".git"))
+            dirs.append({"name": entry, "path": full_path, "is_git": is_git})
+    
+    parent = os.path.dirname(path) if path != "/" else None
+    
+    return {
+        "path": path,
+        "dirs": dirs,
+        "parent": parent,
+    }
 
 
 @app.get("/api/projects")

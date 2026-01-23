@@ -57,11 +57,14 @@ class GitHubClient:
     Async GitHub API client with rate limiting and retry logic
     """
     BASE_URL = "https://api.github.com"
+    MAX_CONCURRENT_REQUESTS = 5
 
     def __init__(self, token: str):
         self.token = token
         self.rate_limit = RateLimitInfo()
         self._session: Optional[aiohttp.ClientSession] = None
+        self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
+        self._request_lock = asyncio.Lock()
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session"""
@@ -107,51 +110,54 @@ class GitHubClient:
         params: Optional[dict] = None,
         retries: int = 3
     ) -> dict:
-        """Make an API request with retry logic"""
-        await self._wait_for_rate_limit()
-        session = await self._get_session()
-        url = f"{self.BASE_URL}{endpoint}"
+        """Make an API request with retry logic and concurrency control"""
+        async with self._semaphore:
+            async with self._request_lock:
+                await self._wait_for_rate_limit()
+            
+            session = await self._get_session()
+            url = f"{self.BASE_URL}{endpoint}"
 
-        for attempt in range(retries):
-            try:
-                print(f"[GitHub] {method} {url}")
-                async with session.request(
-                    method,
-                    url,
-                    json=data,
-                    params=params
-                ) as response:
-                    self._update_rate_limit(dict(response.headers))
+            for attempt in range(retries):
+                try:
+                    print(f"[GitHub] {method} {url}")
+                    async with session.request(
+                        method,
+                        url,
+                        json=data,
+                        params=params
+                    ) as response:
+                        self._update_rate_limit(dict(response.headers))
 
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    elif response.status == 204:
-                        return {}
-                    elif response.status == 401:
-                        raise GitHubAuthError("Invalid or expired token")
-                    elif response.status == 403:
-                        if self.rate_limit.remaining == 0:
-                            raise GitHubRateLimitError(self.rate_limit.reset_at)
-                        error = await response.json()
-                        raise GitHubError(f"Forbidden: {error.get('message', '')}")
-                    elif response.status == 404:
-                        raise GitHubNotFoundError(f"Not found: {endpoint}")
-                    elif response.status == 422:
-                        error = await response.json()
-                        raise GitHubError(f"Validation failed: {error.get('message', '')} - {error.get('errors', [])}")
+                        if response.status == 200 or response.status == 201:
+                            return await response.json()
+                        elif response.status == 204:
+                            return {}
+                        elif response.status == 401:
+                            raise GitHubAuthError("Invalid or expired token")
+                        elif response.status == 403:
+                            if self.rate_limit.remaining == 0:
+                                raise GitHubRateLimitError(self.rate_limit.reset_at)
+                            error = await response.json()
+                            raise GitHubError(f"Forbidden: {error.get('message', '')}")
+                        elif response.status == 404:
+                            raise GitHubNotFoundError(f"Not found: {endpoint}")
+                        elif response.status == 422:
+                            error = await response.json()
+                            raise GitHubError(f"Validation failed: {error.get('message', '')} - {error.get('errors', [])}")
+                        else:
+                            error = await response.json()
+                            raise GitHubError(f"API error {response.status}: {error.get('message', '')}")
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    if attempt < retries - 1:
+                        wait = 2 ** attempt
+                        print(f"[GitHub] Request failed, retrying in {wait}s: {e}")
+                        await asyncio.sleep(wait)
                     else:
-                        error = await response.json()
-                        raise GitHubError(f"API error {response.status}: {error.get('message', '')}")
+                        raise GitHubError(f"Request failed after {retries} attempts: {e}")
 
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                if attempt < retries - 1:
-                    wait = 2 ** attempt
-                    print(f"[GitHub] Request failed, retrying in {wait}s: {e}")
-                    await asyncio.sleep(wait)
-                else:
-                    raise GitHubError(f"Request failed after {retries} attempts: {e}")
-
-        raise GitHubError("Request failed")
+            raise GitHubError("Request failed")
 
     # ==================== Repository ====================
 

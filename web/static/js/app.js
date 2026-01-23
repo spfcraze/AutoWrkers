@@ -1,4 +1,70 @@
-// UltraClaude - Frontend Application
+class Toast {
+    static container = null;
+    static queue = [];
+
+    static init() {
+        if (!Toast.container) {
+            Toast.container = document.createElement('div');
+            Toast.container.className = 'toast-container';
+            document.body.appendChild(Toast.container);
+        }
+    }
+
+    static show(type, title, message, duration = 5000) {
+        Toast.init();
+
+        const icons = {
+            success: '✓',
+            error: '✕',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type] || icons.info}</span>
+            <div class="toast-content">
+                <div class="toast-title">${Toast.escapeHtml(title)}</div>
+                ${message ? `<div class="toast-message">${Toast.escapeHtml(message)}</div>` : ''}
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+
+        Toast.container.appendChild(toast);
+
+        if (duration > 0) {
+            setTimeout(() => {
+                toast.classList.add('toast-hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        return toast;
+    }
+
+    static success(title, message, duration) {
+        return Toast.show('success', title, message, duration);
+    }
+
+    static error(title, message, duration = 8000) {
+        return Toast.show('error', title, message, duration);
+    }
+
+    static warning(title, message, duration) {
+        return Toast.show('warning', title, message, duration);
+    }
+
+    static info(title, message, duration) {
+        return Toast.show('info', title, message, duration);
+    }
+
+    static escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
 
 class UltraClaude {
     constructor() {
@@ -11,6 +77,11 @@ class UltraClaude {
         this.contextMenuSessionId = null;
         this.draggedSessionId = null;
         this.terminalVisible = true;
+        this.autoScroll = true;
+        this.streamingTimeout = null;
+        this.lastOutputTime = new Map();
+        this.hasRenderedOnce = false;
+        this.reviewTemplates = [];
 
         this.init();
     }
@@ -20,6 +91,7 @@ class UltraClaude {
         this.setupEventListeners();
         this.setupContextMenu();
         this.setupDragAndDrop();
+        this.setupTerminalScroll();
     }
 
     connectWebSocket() {
@@ -73,7 +145,7 @@ class UltraClaude {
 
     handleError(message) {
         console.error('Server error:', message);
-        alert('Error: ' + message);
+        Toast.error('Error', message);
     }
 
     handleSessionCreated(session) {
@@ -82,6 +154,7 @@ class UltraClaude {
         this.outputBuffers.set(session.id, []);
         this.renderSessions();
         this.updateStats();
+        Toast.success('Session Created', `${session.name} (#${session.id}) is starting...`);
     }
 
     initSessions(sessions) {
@@ -95,19 +168,95 @@ class UltraClaude {
     }
 
     handleOutput(sessionId, data) {
-        // Store full screen content (we receive complete screen updates)
         this.outputBuffers.set(sessionId, [data]);
+        this.lastOutputTime.set(sessionId, Date.now());
 
-        // Update terminal if this is the active session
         if (sessionId === this.activeSessionId) {
             this.replaceTerminalContent(data);
+            this.showStreamingIndicator();
+            this.flashTerminal();
         }
 
-        // Update session preview
         const session = this.sessions.get(sessionId);
         if (session) {
             session.last_output = data.slice(-200);
             this.updateSessionCard(sessionId);
+        }
+    }
+
+    showStreamingIndicator() {
+        const indicator = document.getElementById('streaming-indicator');
+        const timeEl = document.getElementById('streaming-time');
+        
+        if (indicator) {
+            indicator.classList.add('active');
+        }
+        
+        if (timeEl) {
+            const now = new Date();
+            timeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+        }
+
+        if (this.streamingTimeout) {
+            clearTimeout(this.streamingTimeout);
+        }
+
+        this.streamingTimeout = setTimeout(() => {
+            if (indicator) {
+                indicator.classList.remove('active');
+            }
+        }, 3000);
+    }
+
+    flashTerminal() {
+        const output = document.getElementById('terminal-output');
+        if (output && !this.autoScroll && this.hasRenderedOnce) {
+            output.classList.remove('flash');
+            void output.offsetWidth;
+            output.classList.add('flash');
+        }
+        this.hasRenderedOnce = true;
+    }
+
+    setupTerminalScroll() {
+        const output = document.getElementById('terminal-output');
+        if (!output) return;
+
+        output.addEventListener('scroll', () => {
+            if (!this.autoScroll) {
+                const isNearBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 100;
+                const indicator = document.getElementById('new-output-indicator');
+                if (indicator) {
+                    indicator.classList.toggle('visible', !isNearBottom && this.activeSessionId);
+                }
+            }
+        });
+    }
+
+    toggleAutoScroll() {
+        this.autoScroll = !this.autoScroll;
+        const btn = document.getElementById('autoscroll-btn');
+        const indicator = document.getElementById('new-output-indicator');
+
+        if (btn) {
+            btn.classList.toggle('disabled', !this.autoScroll);
+            btn.title = this.autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled';
+        }
+
+        if (this.autoScroll) {
+            this.scrollToBottom();
+            if (indicator) indicator.classList.remove('visible');
+        }
+    }
+
+    scrollToBottom() {
+        const output = document.getElementById('terminal-output');
+        if (output) {
+            output.scrollTop = output.scrollHeight;
+        }
+        const indicator = document.getElementById('new-output-indicator');
+        if (indicator) {
+            indicator.classList.remove('visible');
         }
     }
 
@@ -136,7 +285,7 @@ class UltraClaude {
         if (Notification.permission === 'granted') {
             new Notification(`UltraClaude - ${session.name}`, {
                 body: 'Session needs your attention',
-                icon: '/static/icon.png'
+                icon: '/static/favicon.svg'
             });
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission();
@@ -274,7 +423,6 @@ class UltraClaude {
         this.activeSessionId = sessionId;
         const session = this.sessions.get(sessionId);
 
-        // Update card styles
         document.querySelectorAll('.session-card').forEach(card => {
             card.classList.remove('active');
         });
@@ -283,11 +431,21 @@ class UltraClaude {
             activeCard.classList.add('active');
         }
 
-        // Update terminal title
         document.getElementById('active-session-title').textContent =
             session ? `${session.name} (#${session.id})` : 'Select a session';
 
-        // Load output from API (to get history) and merge with local buffer
+        const indicator = document.getElementById('streaming-indicator');
+        const newOutputIndicator = document.getElementById('new-output-indicator');
+        if (indicator) indicator.classList.remove('active');
+        if (newOutputIndicator) newOutputIndicator.classList.remove('visible');
+
+        const isRunning = session && (session.status === 'running' || session.status === 'starting');
+        const lastOutput = this.lastOutputTime.get(sessionId);
+        const recentlyActive = lastOutput && (Date.now() - lastOutput < 5000);
+        if (indicator && isRunning && recentlyActive) {
+            indicator.classList.add('active');
+        }
+
         const output = document.getElementById('terminal-output');
         output.innerHTML = '<div class="placeholder">Loading output...</div>';
 
@@ -296,7 +454,6 @@ class UltraClaude {
             const data = await response.json();
 
             if (data.output) {
-                // Store in buffer and display
                 this.outputBuffers.set(sessionId, [data.output]);
                 output.innerHTML = `<div class="terminal-content">${this.ansiToHtml(data.output)}</div>`;
             } else {
@@ -304,16 +461,16 @@ class UltraClaude {
             }
         } catch (e) {
             console.error('Failed to load session output:', e);
-            // Fall back to local buffer
             const buffer = this.outputBuffers.get(sessionId) || [];
             output.innerHTML = buffer.length > 0
                 ? `<div class="terminal-content">${this.ansiToHtml(buffer.join(''))}</div>`
                 : '<div class="placeholder">No output yet...</div>';
         }
 
-        output.scrollTop = output.scrollHeight;
+        if (this.autoScroll) {
+            output.scrollTop = output.scrollHeight;
+        }
 
-        // Focus input
         document.getElementById('terminal-input').focus();
     }
 
@@ -339,8 +496,30 @@ class UltraClaude {
 
     replaceTerminalContent(data) {
         const output = document.getElementById('terminal-output');
+        const wasAtBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 100;
+        
         output.innerHTML = `<div class="terminal-content">${this.ansiToHtml(data)}</div>`;
-        output.scrollTop = output.scrollHeight;
+        
+        this.updateOutputStats(data);
+        
+        if (this.autoScroll || wasAtBottom) {
+            output.scrollTop = output.scrollHeight;
+        } else {
+            const indicator = document.getElementById('new-output-indicator');
+            if (indicator) indicator.classList.add('visible');
+        }
+    }
+
+    updateOutputStats(data) {
+        const statsEl = document.getElementById('output-stats');
+        if (!statsEl || !data) {
+            if (statsEl) statsEl.textContent = '';
+            return;
+        }
+        const lines = data.split('\n').length;
+        const bytes = new Blob([data]).size;
+        const kbSize = (bytes / 1024).toFixed(1);
+        statsEl.textContent = `${lines} lines · ${kbSize} KB`;
     }
 
     clearTerminal() {
@@ -382,7 +561,6 @@ class UltraClaude {
     }
 
     setupEventListeners() {
-        // Filter buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -390,6 +568,22 @@ class UltraClaude {
                 this.currentFilter = btn.dataset.filter;
                 this.renderSessions();
             };
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'End' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                this.scrollToBottom();
+                if (!this.autoScroll) this.toggleAutoScroll();
+            }
+            if (e.key === 'End' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                const activeEl = document.activeElement;
+                const isInputFocused = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA';
+                if (!isInputFocused) {
+                    e.preventDefault();
+                    this.scrollToBottom();
+                }
+            }
         });
 
         // Request notification permission
@@ -921,19 +1115,122 @@ class UltraClaude {
                 // If queued, we can't manually start it (depends on parent)
                 // If stopped/completed, we'd need to restart - not supported yet
                 if (session.status === 'queued') {
-                    alert('Queued sessions will start automatically when their parent completes.');
+                    Toast.info('Queued Session', 'Queued sessions will start automatically when their parent completes.');
                 } else if (session.status === 'stopped' || session.status === 'completed') {
-                    alert('Cannot restart stopped/completed sessions. Create a new session instead.');
+                    Toast.warning('Cannot Restart', 'Cannot restart stopped/completed sessions. Create a new session instead.');
                 }
                 break;
             case 'queued':
-                // Would need a parent to be queued
-                alert('To queue a session, set it as a child of a running session using the context menu.');
+                Toast.info('Queue Session', 'To queue a session, set it as a child of a running session using the context menu.');
                 break;
             case 'needs_attention':
-                // This is system-determined, can't manually set
-                alert('Sessions are marked "Needs Attention" automatically when they require input.');
+                Toast.info('Automatic Status', 'Sessions are marked "Needs Attention" automatically when they require input.');
                 break;
+        }
+    }
+
+    async openReviewModal() {
+        if (!this.activeSessionId) {
+            Toast.warning('No Session', 'Select a session first');
+            return;
+        }
+        document.getElementById('review-modal').classList.add('open');
+        await this.loadReviewTemplates();
+    }
+
+    closeReviewModal() {
+        document.getElementById('review-modal').classList.remove('open');
+    }
+
+    async loadReviewTemplates() {
+        try {
+            const response = await fetch('/api/workflow/templates');
+            const data = await response.json();
+            this.reviewTemplates = data.templates || [];
+
+            const select = document.getElementById('review-template');
+            if (this.reviewTemplates.length === 0) {
+                select.innerHTML = '<option value="">No templates available</option>';
+                document.getElementById('review-phases').innerHTML =
+                    '<span style="color: var(--text-secondary)">Create templates on the Workflows page</span>';
+                return;
+            }
+
+            select.innerHTML = this.reviewTemplates.map(t =>
+                `<option value="${t.id}" ${t.is_default ? 'selected' : ''}>${this.escapeHtml(t.name)}</option>`
+            ).join('');
+
+            const defaultTemplate = this.reviewTemplates.find(t => t.is_default) || this.reviewTemplates[0];
+            if (defaultTemplate) {
+                this.updateReviewPreview(defaultTemplate);
+            }
+
+            select.onchange = () => {
+                const template = this.reviewTemplates.find(t => t.id === select.value);
+                if (template) this.updateReviewPreview(template);
+            };
+        } catch (error) {
+            console.error('Failed to load templates:', error);
+            document.getElementById('review-template').innerHTML = '<option value="">Error loading templates</option>';
+        }
+    }
+
+    updateReviewPreview(template) {
+        const container = document.getElementById('review-phases');
+        if (!template.phases || template.phases.length === 0) {
+            container.innerHTML = '<span style="color: var(--text-secondary)">No phases configured</span>';
+            return;
+        }
+        container.innerHTML = template.phases.map(p => {
+            const providerType = p.provider_config?.provider_type || 'claude';
+            const providerClass = providerType.replace('_', '');
+            return `<div class="review-phase-badge">
+                <span class="review-phase-provider ${providerClass}">${providerType}</span>
+                <span>${this.escapeHtml(p.name)}</span>
+            </div>`;
+        }).join('');
+    }
+
+    async startReview() {
+        const session = this.sessions.get(this.activeSessionId);
+        if (!session) return;
+
+        const templateId = document.getElementById('review-template').value;
+        if (!templateId) {
+            Toast.warning('No Template', 'Select a review template first');
+            return;
+        }
+
+        const focus = document.getElementById('review-task').value.trim();
+
+        const taskDescription = focus
+            ? `Review session "${session.name}": ${focus}`
+            : `Review code changes from session "${session.name}"`;
+
+        try {
+            const response = await fetch('/api/workflow/executions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task_description: taskDescription,
+                    project_path: session.working_dir || '',
+                    template_id: templateId,
+                    session_id: session.id
+                })
+            });
+
+            const data = await response.json();
+            if (data.success && data.execution) {
+                await fetch(`/api/workflow/executions/${data.execution.id}/run`, { method: 'POST' });
+                this.closeReviewModal();
+                Toast.success('Review Started', 'Multi-LLM review workflow started');
+                document.getElementById('review-task').value = '';
+            } else {
+                Toast.error('Failed', data.error || 'Could not create review workflow');
+            }
+        } catch (error) {
+            console.error('Failed to start review:', error);
+            Toast.error('Failed', 'Could not start review workflow');
         }
     }
 }
@@ -982,16 +1279,22 @@ function stopActiveSession() {
     }
 }
 
-// Close modal on escape
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        closeModal();
+        app.closeParentModal();
+        app.closeReviewModal();
+    }
+});
+
+document.getElementById('new-session-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'new-session-modal') {
         closeModal();
     }
 });
 
-// Close modal on outside click
-document.getElementById('new-session-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'new-session-modal') {
-        closeModal();
+document.getElementById('review-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'review-modal') {
+        app.closeReviewModal();
     }
 });

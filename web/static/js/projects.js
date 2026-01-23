@@ -1,4 +1,70 @@
-// UltraClaude Projects Page
+class Toast {
+    static container = null;
+    static queue = [];
+
+    static init() {
+        if (!Toast.container) {
+            Toast.container = document.createElement('div');
+            Toast.container.className = 'toast-container';
+            document.body.appendChild(Toast.container);
+        }
+    }
+
+    static show(type, title, message, duration = 5000) {
+        Toast.init();
+
+        const icons = {
+            success: '✓',
+            error: '✕',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type] || icons.info}</span>
+            <div class="toast-content">
+                <div class="toast-title">${Toast.escapeHtml(title)}</div>
+                ${message ? `<div class="toast-message">${Toast.escapeHtml(message)}</div>` : ''}
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+
+        Toast.container.appendChild(toast);
+
+        if (duration > 0) {
+            setTimeout(() => {
+                toast.classList.add('toast-hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        return toast;
+    }
+
+    static success(title, message, duration) {
+        return Toast.show('success', title, message, duration);
+    }
+
+    static error(title, message, duration = 8000) {
+        return Toast.show('error', title, message, duration);
+    }
+
+    static warning(title, message, duration) {
+        return Toast.show('warning', title, message, duration);
+    }
+
+    static info(title, message, duration) {
+        return Toast.show('info', title, message, duration);
+    }
+
+    static escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
 
 class ProjectsManager {
     constructor() {
@@ -289,28 +355,24 @@ class ProjectsManager {
             const data = await response.json();
 
             if (data.success) {
-                alert(`Repository ${data.action} successfully!`);
+                Toast.success('Repository Ready', `Repository ${data.action} successfully!`);
                 await this.loadGitStatus(projectId);
             } else {
-                // Build error message with hint if available
                 let errorMsg = data.message;
                 if (data.hint) {
-                    errorMsg += '\n\n' + data.hint;
+                    errorMsg += ' - ' + data.hint;
                 }
 
-                // Check if it's a token error and offer to open settings
                 if (data.action === 'clone' && (data.message.includes('Token') || data.message.includes('permission'))) {
-                    if (confirm(errorMsg + '\n\nWould you like to open project settings to update the token?')) {
-                        this.editProject(projectId);
-                    }
+                    Toast.warning('Token Issue', errorMsg + '. Click Settings to update the token.');
                 } else {
-                    alert('Failed to setup repository:\n\n' + errorMsg);
+                    Toast.error('Repository Setup Failed', errorMsg);
                 }
                 await this.loadGitStatus(projectId);
             }
         } catch (e) {
             console.error('Failed to setup git repo:', e);
-            alert('Failed to setup repository');
+            Toast.error('Setup Failed', 'Failed to setup repository');
             await this.loadGitStatus(projectId);
         }
     }
@@ -327,14 +389,14 @@ class ProjectsManager {
             const data = await response.json();
 
             if (data.success) {
-                alert('Repository updated successfully!');
+                Toast.success('Pull Complete', 'Repository updated successfully!');
             } else {
-                alert('Failed to pull: ' + data.message);
+                Toast.error('Pull Failed', data.message);
             }
             await this.loadGitStatus(projectId);
         } catch (e) {
             console.error('Failed to pull git repo:', e);
-            alert('Failed to pull latest changes');
+            Toast.error('Pull Failed', 'Failed to pull latest changes');
             await this.loadGitStatus(projectId);
         }
     }
@@ -449,9 +511,9 @@ class ProjectsManager {
         if (this._syncing) return;
         this._syncing = true;
 
-        // Get button if not passed
-        if (!btn && event && event.target) {
-            btn = event.target;
+        // Get button if not passed - use window.event for legacy onclick handlers
+        if (!btn && typeof window !== 'undefined' && window.event && window.event.target) {
+            btn = window.event.target;
         }
 
         const originalText = btn ? btn.textContent : '';
@@ -465,7 +527,7 @@ class ProjectsManager {
             const data = await response.json();
 
             if (data.success) {
-                alert(`Synced ${data.synced} issues (${data.created} new)`);
+                Toast.success('Sync Complete', `Synced ${data.synced} issues (${data.created} new)`);
                 // Reload project data (don't let errors here show as sync failure)
                 try {
                     await this.loadProjects();
@@ -477,11 +539,11 @@ class ProjectsManager {
                     console.error('Error reloading after sync:', reloadError);
                 }
             } else {
-                alert('Failed to sync: ' + (data.detail || 'Unknown error'));
+                Toast.error('Sync Failed', data.detail || 'Unknown error');
             }
         } catch (e) {
             console.error('Sync failed:', e);
-            alert('Failed to sync issues: ' + e.message);
+            Toast.error('Sync Failed', e.message);
         } finally {
             this._syncing = false;
             if (btn) {
@@ -506,11 +568,11 @@ class ProjectsManager {
                     }
                 }
             } else {
-                alert('Failed to start: ' + (data.detail || 'Unknown error'));
+                Toast.error('Start Failed', data.detail || 'Unknown error');
             }
         } catch (e) {
             console.error('Failed to start automation:', e);
-            alert('Failed to start automation');
+            Toast.error('Start Failed', 'Failed to start automation');
         }
     }
 
@@ -529,11 +591,11 @@ class ProjectsManager {
                     }
                 }
             } else {
-                alert('Failed to stop: ' + (data.detail || 'Unknown error'));
+                Toast.error('Stop Failed', data.detail || 'Unknown error');
             }
         } catch (e) {
             console.error('Failed to stop automation:', e);
-            alert('Failed to stop automation');
+            Toast.error('Stop Failed', 'Failed to stop automation');
         }
     }
 
@@ -609,13 +671,14 @@ class ProjectsManager {
             const data = await response.json();
 
             if (data.success) {
+                Toast.success('Issue Started', 'Session started for this issue');
                 await this.loadProjectIssues(this.activeProjectId);
             } else {
-                alert('Failed to start: ' + (data.detail || 'Unknown error'));
+                Toast.error('Start Failed', data.detail || 'Unknown error');
             }
         } catch (e) {
             console.error('Failed to start issue:', e);
-            alert('Failed to start issue session');
+            Toast.error('Start Failed', 'Failed to start issue session');
         }
     }
 
@@ -758,7 +821,7 @@ class ProjectsManager {
             }
         } catch (e) {
             console.error('Failed to delete project:', e);
-            alert('Failed to delete project');
+            Toast.error('Delete Failed', 'Failed to delete project');
         }
     }
 
@@ -844,12 +907,13 @@ async function handleCreateProject(event) {
             projectsManager.projects.set(data.project.id, data.project);
             projectsManager.render();
             projectsManager.selectProject(data.project.id);
+            Toast.success('Project Created', `${data.project.name} has been created`);
         } else {
-            alert('Failed to create project: ' + (data.detail || 'Unknown error'));
+            Toast.error('Create Failed', data.detail || 'Unknown error');
         }
     } catch (e) {
         console.error('Failed to create project:', e);
-        alert('Failed to create project');
+        Toast.error('Create Failed', 'Failed to create project');
     }
 }
 
@@ -941,12 +1005,13 @@ async function handleEditProject(event) {
             projectsManager.projects.set(data.project.id, data.project);
             projectsManager.render();
             projectsManager.renderProjectDetail(projectId);
+            Toast.success('Project Updated', 'Settings saved successfully');
         } else {
-            alert('Failed to update project: ' + (data.detail || 'Unknown error'));
+            Toast.error('Update Failed', data.detail || 'Unknown error');
         }
     } catch (e) {
         console.error('Failed to update project:', e);
-        alert('Failed to update project');
+        Toast.error('Update Failed', 'Failed to update project');
     }
 }
 

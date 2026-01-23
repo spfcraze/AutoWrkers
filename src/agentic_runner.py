@@ -34,7 +34,7 @@ class Message:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to API format"""
-        msg = {"role": self.role, "content": self.content}
+        msg: Dict[str, Any] = {"role": self.role, "content": self.content}
         if self.tool_calls:
             msg["tool_calls"] = self.tool_calls
         if self.tool_call_id:
@@ -374,7 +374,7 @@ class LocalLLMProvider(LLMProvider):
         self.runner: Optional[AgenticRunner] = None
         self._task: Optional[asyncio.Task] = None
 
-    async def start(self, initial_prompt: str = None) -> bool:
+    async def start(self, initial_prompt: Optional[str] = None) -> bool:
         """Start a new LLM session with optional initial prompt"""
         try:
             await self._set_status(LLMProviderStatus.STARTING)

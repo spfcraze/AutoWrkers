@@ -61,6 +61,7 @@ class IssueSessionStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+    NEEDS_REVIEW = "needs_review"
 
 
 @dataclass
@@ -468,6 +469,13 @@ class IssueSessionManager:
                 return s
         return None
 
+    def get_by_session_id(self, session_id: int) -> Optional[IssueSession]:
+        """Get issue session by linked UltraClaude session ID"""
+        for s in self.sessions.values():
+            if s.session_id == session_id:
+                return s
+        return None
+
     def get_by_status(self, project_id: int, status: IssueSessionStatus) -> List[IssueSession]:
         """Get issue sessions by status"""
         return [s for s in self.sessions.values()
@@ -518,6 +526,191 @@ class IssueSessionManager:
         return False
 
 
-# Global instances
-project_manager = ProjectManager()
-issue_session_manager = IssueSessionManager()
+class SQLiteProjectManager:
+    def __init__(self):
+        from .database import db
+        self._db = db
+        self._cache: Dict[int, Project] = {}
+        self._load_cache()
+    
+    def _load_cache(self):
+        for data in self._db.get_all_projects():
+            self._cache[data['id']] = Project.from_dict(data)
+    
+    def _refresh(self, project_id: int) -> Optional[Project]:
+        data = self._db.get_project(project_id)
+        if data:
+            self._cache[project_id] = Project.from_dict(data)
+            return self._cache[project_id]
+        return None
+    
+    def create(self, name: str, github_repo: str, github_token: str = "", **kwargs: Any) -> Project:
+        project_data: Dict[str, Any] = {
+            'name': name,
+            'github_repo': github_repo,
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        for key, value in kwargs.items():
+            if key == 'issue_filter' and isinstance(value, IssueFilter):
+                project_data[key] = value.to_dict()
+            elif key == 'status' and isinstance(value, ProjectStatus):
+                project_data[key] = value.value
+            else:
+                project_data[key] = value
+        
+        if github_token:
+            project_data['github_token_encrypted'] = encrypt_token(github_token)
+        
+        project_id = self._db.create_project(project_data)
+        project = self._refresh(project_id)
+        if project is None:
+            raise RuntimeError(f"Failed to retrieve newly created project {project_id}")
+        return project
+    
+    def get(self, project_id: int) -> Optional[Project]:
+        if project_id in self._cache:
+            return self._cache[project_id]
+        return self._refresh(project_id)
+    
+    def get_all(self) -> List[Project]:
+        return list(self._cache.values())
+    
+    def update(self, project_id: int, **kwargs) -> Optional[Project]:
+        project = self._cache.get(project_id)
+        if not project:
+            return None
+        
+        update_data = {}
+        for key, value in kwargs.items():
+            if key == "github_token":
+                update_data['github_token_encrypted'] = encrypt_token(value)
+            elif key == "llm_api_key":
+                update_data['llm_api_key_encrypted'] = encrypt_token(value)
+            elif key == "issue_filter" and isinstance(value, IssueFilter):
+                update_data[key] = value.to_dict()
+            elif key == "status" and isinstance(value, ProjectStatus):
+                update_data[key] = value.value
+            else:
+                update_data[key] = value
+        
+        self._db.update_project(project_id, update_data)
+        return self._refresh(project_id)
+    
+    def delete(self, project_id: int) -> bool:
+        result = self._db.delete_project(project_id)
+        if result and project_id in self._cache:
+            del self._cache[project_id]
+        return result
+
+
+class SQLiteIssueSessionManager:
+    def __init__(self):
+        from .database import db
+        self._db = db
+        self.sessions: Dict[int, IssueSession] = {}
+        self._load_cache()
+    
+    def _load_cache(self):
+        for data in self._db.get_all_issue_sessions():
+            self.sessions[data['id']] = IssueSession.from_dict(data)
+    
+    def _refresh(self, session_id: int) -> Optional[IssueSession]:
+        data = self._db.get_issue_session(session_id)
+        if data:
+            self.sessions[session_id] = IssueSession.from_dict(data)
+            return self.sessions[session_id]
+        return None
+    
+    def create(self, project_id: int, issue: GitHubIssue) -> IssueSession:
+        session_data = {
+            'project_id': project_id,
+            'github_issue_number': issue.number,
+            'github_issue_title': issue.title,
+            'github_issue_body': issue.body,
+            'github_issue_labels': issue.labels,
+            'github_issue_url': issue.html_url,
+            'branch_name': f"fix/issue-{issue.number}",
+            'created_at': datetime.now().isoformat(),
+        }
+        session_id = self._db.create_issue_session(session_data)
+        session = self._refresh(session_id)
+        if session is None:
+            raise RuntimeError(f"Failed to retrieve newly created issue session {session_id}")
+        return session
+    
+    def get(self, session_id: int) -> Optional[IssueSession]:
+        if session_id in self.sessions:
+            return self.sessions[session_id]
+        return self._refresh(session_id)
+    
+    def get_by_project(self, project_id: int) -> List[IssueSession]:
+        return [s for s in self.sessions.values() if s.project_id == project_id]
+    
+    def get_by_issue(self, project_id: int, issue_number: int) -> Optional[IssueSession]:
+        for s in self.sessions.values():
+            if s.project_id == project_id and s.github_issue_number == issue_number:
+                return s
+        return None
+    
+    def get_by_session_id(self, session_id: int) -> Optional[IssueSession]:
+        for s in self.sessions.values():
+            if s.session_id == session_id:
+                return s
+        return None
+    
+    def get_by_status(self, project_id: int, status: IssueSessionStatus) -> List[IssueSession]:
+        return [s for s in self.sessions.values()
+                if s.project_id == project_id and s.status == status]
+    
+    def get_pending(self, project_id: int) -> List[IssueSession]:
+        return self.get_by_status(project_id, IssueSessionStatus.PENDING)
+    
+    def get_in_progress(self, project_id: int) -> List[IssueSession]:
+        return [s for s in self.sessions.values()
+                if s.project_id == project_id and s.status in (
+                    IssueSessionStatus.IN_PROGRESS,
+                    IssueSessionStatus.VERIFYING,
+                    IssueSessionStatus.QUEUED
+                )]
+    
+    def update(self, session_id: int, **kwargs) -> Optional[IssueSession]:
+        session = self.sessions.get(session_id)
+        if not session:
+            return None
+        
+        update_data = {}
+        for key, value in kwargs.items():
+            if key == "status" and isinstance(value, IssueSessionStatus):
+                update_data[key] = value.value
+            elif key == "verification_results":
+                update_data[key] = [v.to_dict() if isinstance(v, VerificationResult) else v for v in value]
+            else:
+                update_data[key] = value
+        
+        self._db.update_issue_session(session_id, update_data)
+        return self._refresh(session_id)
+    
+    def add_verification_result(self, session_id: int, result: VerificationResult) -> Optional[IssueSession]:
+        session = self.sessions.get(session_id)
+        if not session:
+            return None
+        
+        self._db.add_verification_result(session_id, result.to_dict())
+        return self._refresh(session_id)
+    
+    def delete(self, session_id: int) -> bool:
+        result = self._db.delete_issue_session(session_id)
+        if result and session_id in self.sessions:
+            del self.sessions[session_id]
+        return result
+
+
+USE_SQLITE = os.environ.get('ULTRACLAUDE_USE_SQLITE', '1') == '1'
+
+if USE_SQLITE:
+    project_manager = SQLiteProjectManager()
+    issue_session_manager = SQLiteIssueSessionManager()
+else:
+    project_manager = ProjectManager()
+    issue_session_manager = IssueSessionManager()
