@@ -3,10 +3,12 @@ from typing import Any
 
 from .base import WorkflowLLMProvider, ModelInfo
 from .gemini import GeminiSDKProvider, GeminiOpenRouterProvider, GEMINI_MODELS
+from .gemini_oauth import GeminiOAuthProvider
 from .openai import OpenAIProvider, OpenRouterProvider, OPENAI_MODELS
 from .ollama import OllamaProvider, detect_ollama
 from .lm_studio import LMStudioProvider, detect_lm_studio
 from ..models import ProviderConfig, ProviderType, ProviderKeys
+from ..oauth.manager import oauth_manager
 from ...database import db
 
 
@@ -49,6 +51,8 @@ class ModelRegistry:
             return GeminiSDKProvider(config, api_key)
         elif config.provider_type == ProviderType.GEMINI_OPENROUTER:
             return GeminiOpenRouterProvider(config, api_key)
+        elif config.provider_type == ProviderType.GEMINI_OAUTH:
+            return GeminiOAuthProvider(config, oauth_manager)
         elif config.provider_type == ProviderType.OPENAI:
             return OpenAIProvider(config, api_key)
         elif config.provider_type == ProviderType.OPENROUTER:

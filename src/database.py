@@ -208,6 +208,35 @@ CREATE TABLE IF NOT EXISTS model_registry (
 
 CREATE INDEX IF NOT EXISTS idx_model_registry_provider ON model_registry(provider);
 CREATE INDEX IF NOT EXISTS idx_model_registry_available ON model_registry(is_available);
+
+-- OAuth Tokens Table
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,
+    user_id TEXT DEFAULT 'default',
+    access_token_encrypted TEXT NOT NULL,
+    refresh_token_encrypted TEXT,
+    token_uri TEXT,
+    client_id TEXT,
+    client_secret_encrypted TEXT,
+    scopes TEXT,
+    expires_at TEXT,
+    account_email TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(provider, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_provider ON oauth_tokens(provider);
+
+-- OAuth Client Configs (for user-provided OAuth app credentials)
+CREATE TABLE IF NOT EXISTS oauth_client_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL UNIQUE,
+    client_config_encrypted TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -1178,6 +1207,194 @@ class Database:
             'last_checked': row['last_checked'],
             'metadata': json.loads(row['metadata']) if row['metadata'] else {},
         }
+
+    # ==================== OAuth Token Methods ====================
+
+    def save_oauth_token(self, data: Dict[str, Any]) -> int:
+        """Save or update OAuth token for a provider"""
+        with self._get_connection() as conn:
+            existing = conn.execute(
+                "SELECT id FROM oauth_tokens WHERE provider = ? AND user_id = ?",
+                (data.get('provider', ''), data.get('user_id', 'default'))
+            ).fetchone()
+            
+            if existing:
+                conn.execute("""
+                    UPDATE oauth_tokens SET
+                        access_token_encrypted = ?,
+                        refresh_token_encrypted = ?,
+                        token_uri = ?,
+                        client_id = ?,
+                        client_secret_encrypted = ?,
+                        scopes = ?,
+                        expires_at = ?,
+                        account_email = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                """, (
+                    data.get('access_token_encrypted', ''),
+                    data.get('refresh_token_encrypted', ''),
+                    data.get('token_uri', ''),
+                    data.get('client_id', ''),
+                    data.get('client_secret_encrypted', ''),
+                    json.dumps(data.get('scopes', [])),
+                    data.get('expires_at'),
+                    data.get('account_email', ''),
+                    datetime.now().isoformat(),
+                    existing['id'],
+                ))
+                return existing['id']
+            else:
+                cursor = conn.execute("""
+                    INSERT INTO oauth_tokens (
+                        provider, user_id, access_token_encrypted, refresh_token_encrypted,
+                        token_uri, client_id, client_secret_encrypted, scopes,
+                        expires_at, account_email, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    data.get('provider', ''),
+                    data.get('user_id', 'default'),
+                    data.get('access_token_encrypted', ''),
+                    data.get('refresh_token_encrypted', ''),
+                    data.get('token_uri', ''),
+                    data.get('client_id', ''),
+                    data.get('client_secret_encrypted', ''),
+                    json.dumps(data.get('scopes', [])),
+                    data.get('expires_at'),
+                    data.get('account_email', ''),
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat(),
+                ))
+                return cursor.lastrowid or 0
+
+    def get_oauth_token(self, provider: str, user_id: str = 'default') -> Optional[Dict[str, Any]]:
+        """Get OAuth token for a provider"""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM oauth_tokens WHERE provider = ? AND user_id = ?",
+                (provider, user_id)
+            ).fetchone()
+            return self._row_to_oauth_token(row) if row else None
+
+    def get_all_oauth_tokens(self, user_id: str = 'default') -> List[Dict[str, Any]]:
+        """Get all OAuth tokens for a user"""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM oauth_tokens WHERE user_id = ?",
+                (user_id,)
+            ).fetchall()
+            return [self._row_to_oauth_token(row) for row in rows]
+
+    def delete_oauth_token(self, provider: str, user_id: str = 'default') -> bool:
+        """Delete OAuth token for a provider"""
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM oauth_tokens WHERE provider = ? AND user_id = ?",
+                (provider, user_id)
+            )
+            return cursor.rowcount > 0
+
+    def update_oauth_token_expiry(
+        self, 
+        provider: str, 
+        access_token_encrypted: str,
+        expires_at: str,
+        user_id: str = 'default'
+    ) -> bool:
+        """Update just the access token and expiry (for refresh)"""
+        with self._get_connection() as conn:
+            cursor = conn.execute("""
+                UPDATE oauth_tokens SET
+                    access_token_encrypted = ?,
+                    expires_at = ?,
+                    updated_at = ?
+                WHERE provider = ? AND user_id = ?
+            """, (
+                access_token_encrypted,
+                expires_at,
+                datetime.now().isoformat(),
+                provider,
+                user_id,
+            ))
+            return cursor.rowcount > 0
+
+    def _row_to_oauth_token(self, row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            'id': row['id'],
+            'provider': row['provider'],
+            'user_id': row['user_id'],
+            'access_token_encrypted': row['access_token_encrypted'],
+            'refresh_token_encrypted': row['refresh_token_encrypted'],
+            'token_uri': row['token_uri'],
+            'client_id': row['client_id'],
+            'client_secret_encrypted': row['client_secret_encrypted'],
+            'scopes': json.loads(row['scopes']) if row['scopes'] else [],
+            'expires_at': row['expires_at'],
+            'account_email': row['account_email'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at'],
+        }
+
+    # ==================== OAuth Client Config Methods ====================
+
+    def save_oauth_client_config(self, provider: str, client_config_encrypted: str) -> int:
+        """Save OAuth client config (OAuth app credentials) for a provider"""
+        with self._get_connection() as conn:
+            existing = conn.execute(
+                "SELECT id FROM oauth_client_configs WHERE provider = ?",
+                (provider,)
+            ).fetchone()
+            
+            if existing:
+                conn.execute("""
+                    UPDATE oauth_client_configs SET
+                        client_config_encrypted = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                """, (
+                    client_config_encrypted,
+                    datetime.now().isoformat(),
+                    existing['id'],
+                ))
+                return existing['id']
+            else:
+                cursor = conn.execute("""
+                    INSERT INTO oauth_client_configs (
+                        provider, client_config_encrypted, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?)
+                """, (
+                    provider,
+                    client_config_encrypted,
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat(),
+                ))
+                return cursor.lastrowid or 0
+
+    def get_oauth_client_config(self, provider: str) -> Optional[Dict[str, Any]]:
+        """Get OAuth client config for a provider"""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM oauth_client_configs WHERE provider = ?",
+                (provider,)
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                'id': row['id'],
+                'provider': row['provider'],
+                'client_config_encrypted': row['client_config_encrypted'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at'],
+            }
+
+    def delete_oauth_client_config(self, provider: str) -> bool:
+        """Delete OAuth client config for a provider"""
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM oauth_client_configs WHERE provider = ?",
+                (provider,)
+            )
+            return cursor.rowcount > 0
 
 
 db = Database()

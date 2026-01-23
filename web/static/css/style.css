@@ -1211,3 +1211,189 @@ body {
     outline: none;
     border-color: var(--accent-cyan);
 }
+
+.update-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    margin-left: 16px;
+}
+
+.update-indicator:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+
+.update-indicator.has-update {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+}
+
+.update-indicator.has-update:hover {
+    background: rgba(63, 185, 80, 0.25);
+}
+
+.update-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    animation: update-pulse 2s infinite;
+}
+
+@keyframes update-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
+}
+
+.update-version {
+    font-family: monospace;
+}
+
+.modal-medium {
+    width: 480px;
+    max-width: 95vw;
+}
+
+.update-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.update-status {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+}
+
+.update-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+}
+
+.update-status-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.update-status-detail {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.update-status.update-available {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.update-status.update-available .update-icon {
+    background: rgba(63, 185, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.update-status.update-current .update-icon {
+    background: rgba(88, 166, 255, 0.2);
+    color: var(--accent-cyan);
+}
+
+.update-status.update-error {
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+}
+
+.update-status.update-error .update-icon {
+    background: rgba(248, 81, 73, 0.2);
+    color: var(--accent-red);
+}
+
+.update-status.update-success {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.update-status.update-success .update-icon {
+    background: rgba(63, 185, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.update-notes {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.update-notes-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.update-notes-content {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.update-git-info {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.update-git-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 4px 0;
+}
+
+.update-git-label {
+    color: var(--text-secondary);
+    min-width: 70px;
+}
+
+.update-git-value {
+    font-family: monospace;
+}
+
+.update-git-warning {
+    color: var(--accent-yellow);
+    font-size: 12px;
+    padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.update-error-message {
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: 6px;
+    padding: 12px;
+    color: var(--accent-red);
+    font-size: 13px;
+}

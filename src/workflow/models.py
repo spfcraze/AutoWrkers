@@ -85,6 +85,7 @@ class ProviderType(Enum):
     CLAUDE_CODE = "claude_code"
     GEMINI_SDK = "gemini_sdk"
     GEMINI_OPENROUTER = "gemini_openrouter"
+    GEMINI_OAUTH = "gemini_oauth"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"

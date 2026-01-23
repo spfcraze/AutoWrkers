@@ -15,6 +15,8 @@ from .template_manager import template_manager
 from .artifact_manager import artifact_manager
 from .budget_tracker import budget_manager
 from .providers.registry import model_registry
+from .oauth.manager import oauth_manager, AuthStatus
+from .oauth.storage import OAuthClientConfig
 
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
@@ -48,6 +50,10 @@ class ProviderKeysRequest(BaseModel):
     openrouter_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
     lm_studio_url: str = "http://localhost:1234/v1"
+
+
+class OAuthClientConfigRequest(BaseModel):
+    client_config: dict[str, Any]
 
 
 @router.get("/templates")
@@ -123,6 +129,69 @@ async def create_template(request: TemplateCreateRequest):
     
     template_id = template_manager.create(template)
     return {"success": True, "template_id": template_id, "template": template.to_dict()}
+
+
+@router.put("/templates/{template_id}")
+async def update_template(template_id: str, request: TemplateCreateRequest):
+    from .models import (
+        WorkflowPhase,
+        ProviderConfig,
+        ProviderType,
+        PhaseRole,
+        ArtifactType,
+        IterationBehavior,
+        FailureBehavior,
+        generate_id,
+    )
+    
+    existing = template_manager.get(template_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    phases = []
+    for i, p in enumerate(request.phases):
+        provider_data = p.get("provider_config", p.get("provider", {}))
+        provider_config = ProviderConfig(
+            provider_type=ProviderType(provider_data.get("provider_type", provider_data.get("type", "claude_code"))),
+            model_name=provider_data.get("model_name", provider_data.get("model", "")),
+            temperature=provider_data.get("temperature", 0.1),
+            context_length=provider_data.get("context_length", 8192),
+        )
+        
+        phase = WorkflowPhase(
+            id=generate_id(),
+            name=p.get("name", f"Phase {i+1}"),
+            role=PhaseRole(p.get("role", "analyzer")),
+            provider_config=provider_config,
+            prompt_template=p.get("prompt_template", ""),
+            output_artifact_type=ArtifactType(p.get("output_artifact_type", p.get("output_type", "custom"))),
+            success_pattern=p.get("success_pattern", "/complete"),
+            can_skip=p.get("can_skip", True),
+            can_iterate=p.get("can_iterate", False),
+            max_retries=p.get("max_retries", 2),
+            timeout_seconds=p.get("timeout_seconds", 3600),
+            parallel_with=p.get("parallel_with"),
+            order=p.get("order", i),
+        )
+        phases.append(phase)
+    
+    updates = {
+        'name': request.name,
+        'description': request.description,
+        'phases': phases,
+        'max_iterations': request.max_iterations,
+        'iteration_behavior': IterationBehavior(request.iteration_behavior).value,
+        'failure_behavior': FailureBehavior(request.failure_behavior).value,
+        'budget_limit': request.budget_limit,
+        'is_global': request.is_global,
+        'project_id': request.project_id,
+    }
+    
+    if not template_manager.update(template_id, updates):
+        raise HTTPException(status_code=500, detail="Failed to update template")
+    
+    updated = template_manager.get(template_id)
+    return {"success": True, "template": updated.to_dict() if updated else None}
 
 
 @router.delete("/templates/{template_id}")
@@ -384,6 +453,93 @@ async def save_provider_keys(request: ProviderKeysRequest):
         lm_studio_url=request.lm_studio_url,
     )
     model_registry.save_keys(keys)
+    return {"success": True}
+
+
+@router.get("/oauth/status")
+async def get_oauth_status():
+    statuses = oauth_manager.get_all_statuses()
+    return {
+        "providers": {
+            provider: status.to_dict()
+            for provider, status in statuses.items()
+        }
+    }
+
+
+@router.get("/oauth/{provider}/status")
+async def get_oauth_provider_status(provider: str):
+    if provider not in oauth_manager.SUPPORTED_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider: {provider}")
+    
+    status = oauth_manager.get_status(provider)
+    return status.to_dict()
+
+
+@router.post("/oauth/{provider}/client-config")
+async def save_oauth_client_config(provider: str, request: OAuthClientConfigRequest):
+    if provider not in oauth_manager.SUPPORTED_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider: {provider}")
+    
+    try:
+        config = OAuthClientConfig(provider=provider, client_config=request.client_config)
+        oauth_manager.save_client_config(config)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/oauth/{provider}/client-config")
+async def delete_oauth_client_config(provider: str):
+    if provider not in oauth_manager.SUPPORTED_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider: {provider}")
+    
+    oauth_manager.delete_client_config(provider)
+    return {"success": True}
+
+
+@router.post("/oauth/{provider}/start")
+async def start_oauth_flow(provider: str, port: int = 0):
+    if provider not in oauth_manager.SUPPORTED_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider: {provider}")
+    
+    if not oauth_manager.has_client_config(provider):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"OAuth client config not configured for {provider}. Upload client config first."
+        )
+    
+    if provider == "google":
+        from .oauth.flows.google import GoogleOAuthFlow, GoogleOAuthFlowError
+        
+        client_config = oauth_manager.get_client_config(provider)
+        if not client_config:
+            raise HTTPException(status_code=400, detail="OAuth client config not found")
+        
+        try:
+            flow = GoogleOAuthFlow(client_config)
+            token = await flow.run_local_server_flow(port=port, open_browser=True)
+            oauth_manager.save_token(token)
+            
+            return {
+                "success": True,
+                "account_email": token.account_email,
+                "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+            }
+        except GoogleOAuthFlowError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"OAuth flow failed: {str(e)}")
+    
+    raise HTTPException(status_code=400, detail=f"OAuth flow not implemented for {provider}")
+
+
+@router.delete("/oauth/{provider}/revoke")
+async def revoke_oauth(provider: str):
+    if provider not in oauth_manager.SUPPORTED_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider: {provider}")
+    
+    oauth_manager.revoke(provider)
     return {"success": True}
 
 

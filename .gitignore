@@ -19,13 +19,19 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
 venv/
-ENV/
 env/
 .venv/
+.env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
 
 # IDE
 .idea/
@@ -33,57 +39,25 @@ env/
 *.swp
 *.swo
 *~
-.project
-.pydevproject
-.settings/
-*.sublime-workspace
-*.sublime-project
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+*.log
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# UltraClaude data (contains sensitive tokens)
-data/
-*.json.bak
-
-# Environment files
+# Secrets
 .env
-.env.local
-.env.*.local
-*.env
+*.pem
+*.key
+credentials.json
+client_secret*.json
 
-# Logs
-*.log
-logs/
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
-.nox/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Distribution
-*.tar.gz
-*.zip
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Session files
-sessions/
-
-# Local configuration (user-specific)
-config.local.json
-settings.local.json
+# Build artifacts
+=0.25.0

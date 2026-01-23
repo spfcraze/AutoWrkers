@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/workflow.css">
+    <script src="/static/js/updater.js" defer></script>
 </head>
 <body>
     <div class="app">
@@ -26,6 +27,12 @@
                 <span class="separator">|</span>
                 <span id="running-count">0 running</span>
             </div>
+            <button class="btn btn-secondary" onclick="workflowApp.openOAuthModal()">
+                🔑 OAuth
+            </button>
+            <button class="btn btn-secondary" onclick="workflowApp.openTemplateModal()">
+                ⚙ Templates
+            </button>
             <button class="btn btn-primary" onclick="workflowApp.openNewWorkflowModal()">
                 + New Workflow
             </button>
@@ -143,6 +150,218 @@
             <div class="modal-actions">
                 <button class="btn" onclick="workflowApp.closeBrowseModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="workflowApp.selectCurrentPath()">Select This Directory</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Editor Modal -->
+    <div class="modal" id="template-modal">
+        <div class="modal-content modal-xlarge">
+            <div class="modal-header">
+                <h3 id="template-modal-title">Create Template</h3>
+                <button class="btn btn-small" onclick="workflowApp.closeTemplateModal()">×</button>
+            </div>
+            
+            <div class="template-editor">
+                <div class="template-editor-sidebar">
+                    <div class="template-list-header">
+                        <h4>Templates</h4>
+                        <button class="btn btn-small btn-primary" onclick="workflowApp.newTemplate()">+ New</button>
+                    </div>
+                    <div class="template-list" id="template-list"></div>
+                </div>
+                
+                <div class="template-editor-main" id="template-editor-main">
+                    <div class="template-placeholder">
+                        <div class="placeholder-icon">📋</div>
+                        <p>Select a template to edit or create a new one</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Form (shown inside template-editor-main) -->
+    <template id="template-form-template">
+        <div class="template-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="template-name">Template Name</label>
+                    <input type="text" id="template-name" placeholder="My Workflow Template">
+                </div>
+                <div class="form-group">
+                    <label for="template-iterations">Max Iterations</label>
+                    <input type="number" id="template-iterations" value="3" min="1" max="10">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="template-description">Description</label>
+                <input type="text" id="template-description" placeholder="Describe what this template does...">
+            </div>
+            
+            <div class="phases-section">
+                <div class="phases-header">
+                    <h4>Phases</h4>
+                    <button class="btn btn-small btn-primary" onclick="workflowApp.addPhase()">+ Add Phase</button>
+                </div>
+                <div class="phases-list" id="phases-list"></div>
+            </div>
+            
+            <div class="template-form-actions">
+                <button class="btn btn-danger" id="delete-template-btn" onclick="workflowApp.deleteCurrentTemplate()" style="display:none;">Delete Template</button>
+                <div class="spacer"></div>
+                <button class="btn" onclick="workflowApp.closeTemplateModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="workflowApp.saveTemplate()">Save Template</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Phase Card Template -->
+    <template id="phase-card-template">
+        <div class="phase-edit-card" data-phase-index="">
+            <div class="phase-edit-header">
+                <span class="phase-order-badge">#1</span>
+                <input type="text" class="phase-name-input" placeholder="Phase Name" value="">
+                <button class="btn btn-small btn-icon" onclick="workflowApp.movePhaseUp(this)" title="Move Up">↑</button>
+                <button class="btn btn-small btn-icon" onclick="workflowApp.movePhaseDown(this)" title="Move Down">↓</button>
+                <button class="btn btn-small btn-icon btn-danger" onclick="workflowApp.removePhase(this)" title="Remove">×</button>
+            </div>
+            <div class="phase-edit-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Provider</label>
+                        <select class="phase-provider" onchange="workflowApp.onProviderChange(this)">
+                            <option value="">Select provider...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <select class="phase-model">
+                            <option value="">Select model...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select class="phase-role">
+                            <option value="analyzer">Analyzer</option>
+                            <option value="planner">Planner</option>
+                            <option value="implementer">Implementer</option>
+                            <option value="reviewer_functional">Functional Reviewer</option>
+                            <option value="reviewer_style">Style Reviewer</option>
+                            <option value="reviewer_security">Security Reviewer</option>
+                            <option value="reviewer_custom">Custom Reviewer</option>
+                            <option value="verifier">Verifier</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Temperature</label>
+                        <input type="number" class="phase-temperature" value="0.1" min="0" max="2" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Output Type</label>
+                        <select class="phase-output-type">
+                            <option value="task_list">Task List</option>
+                            <option value="codebase_docs">Codebase Docs</option>
+                            <option value="implementation_plan">Implementation Plan</option>
+                            <option value="code_diff">Code Diff</option>
+                            <option value="review_report">Review Report</option>
+                            <option value="verification_report">Verification Report</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label-inline">
+                            <input type="checkbox" class="phase-can-iterate">
+                            Can Iterate
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Prompt Template</label>
+                    <textarea class="phase-prompt" rows="4" placeholder="Enter the prompt template for this phase...&#10;Use {task}, {context}, {previous_output} as variables."></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- OAuth Settings Modal -->
+    <div class="modal" id="oauth-modal">
+        <div class="modal-content modal-medium">
+            <div class="modal-header">
+                <h3>OAuth Settings</h3>
+                <button class="btn btn-small" onclick="workflowApp.closeOAuthModal()">×</button>
+            </div>
+            
+            <div class="oauth-settings">
+                <!-- Google OAuth Section -->
+                <div class="oauth-provider-section" id="oauth-google-section">
+                    <div class="oauth-provider-header">
+                        <span class="oauth-provider-icon">🔷</span>
+                        <span class="oauth-provider-name">Google (Gemini)</span>
+                        <span class="oauth-status-badge" id="oauth-google-status">Not Configured</span>
+                    </div>
+                    
+                    <div class="oauth-provider-body">
+                        <!-- Step 1: Client Config -->
+                        <div class="oauth-step" id="oauth-google-step-config">
+                            <div class="oauth-step-header">
+                                <span class="oauth-step-number">1</span>
+                                <span class="oauth-step-title">Upload OAuth Client Config</span>
+                            </div>
+                            <div class="oauth-step-content">
+                                <p class="oauth-step-description">
+                                    Download your OAuth client credentials from 
+                                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>
+                                    and upload the JSON file here.
+                                </p>
+                                <div class="oauth-config-status" id="oauth-google-config-status">
+                                    <span class="oauth-config-icon">○</span>
+                                    <span>No client config uploaded</span>
+                                </div>
+                                <div class="oauth-step-actions">
+                                    <input type="file" id="oauth-google-config-file" accept=".json" style="display:none" onchange="workflowApp.uploadOAuthConfig('google', this)">
+                                    <button class="btn btn-small" onclick="document.getElementById('oauth-google-config-file').click()">
+                                        📁 Upload client_secret.json
+                                    </button>
+                                    <button class="btn btn-small btn-danger" id="oauth-google-config-delete" onclick="workflowApp.deleteOAuthConfig('google')" style="display:none">
+                                        Delete Config
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Connect Account -->
+                        <div class="oauth-step" id="oauth-google-step-connect">
+                            <div class="oauth-step-header">
+                                <span class="oauth-step-number">2</span>
+                                <span class="oauth-step-title">Connect Your Google Account</span>
+                            </div>
+                            <div class="oauth-step-content">
+                                <p class="oauth-step-description">
+                                    Sign in with your Google account to authorize access to Gemini API.
+                                </p>
+                                <div class="oauth-account-info" id="oauth-google-account" style="display:none">
+                                    <span class="oauth-account-icon">✓</span>
+                                    <span class="oauth-account-email" id="oauth-google-email">user@gmail.com</span>
+                                </div>
+                                <div class="oauth-step-actions">
+                                    <button class="btn btn-small btn-primary" id="oauth-google-connect-btn" onclick="workflowApp.startOAuthFlow('google')" disabled>
+                                        🔗 Connect Google Account
+                                    </button>
+                                    <button class="btn btn-small btn-danger" id="oauth-google-disconnect-btn" onclick="workflowApp.revokeOAuth('google')" style="display:none">
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn" onclick="workflowApp.closeOAuthModal()">Close</button>
             </div>
         </div>
     </div>

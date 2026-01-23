@@ -181,6 +181,42 @@ async def health_check():
     }
 
 
+from .updater import updater
+
+
+@app.get("/api/update/check")
+async def check_for_updates():
+    update_info = await updater.check_for_updates()
+    git_status = await updater.get_local_git_status()
+    return {
+        "update": update_info.to_dict(),
+        "git": git_status,
+    }
+
+
+@app.post("/api/update/install")
+async def install_update(force: bool = False):
+    update_info = await updater.check_for_updates()
+    if not update_info.update_available and not force:
+        return {
+            "success": False,
+            "error": "No update available",
+            "current_version": update_info.current_version,
+        }
+    
+    result = await updater.update(force=force)
+    return result
+
+
+@app.get("/api/version")
+async def get_version():
+    from src import __version__
+    return {
+        "version": __version__,
+        "repo": "https://github.com/spfcraze/Ultra-Claude",
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {
