@@ -1,0 +1,18 @@
+[Unit]
+Description=UltraClaude - Multi-session Claude Code Manager
+After=network.target
+
+[Service]
+Type=simple
+User=rat
+Group=rat
+WorkingDirectory=/home/rat/ultraclaude
+Environment="PATH=/home/rat/ultraclaude/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/rat/ultraclaude/venv/bin/python main.py start --host 0.0.0.0 --port 8420
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

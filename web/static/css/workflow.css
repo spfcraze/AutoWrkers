@@ -1003,3 +1003,67 @@
     background: rgba(88, 166, 255, 0.2);
     color: var(--accent-cyan);
 }
+
+.status-awaiting_approval {
+    background: rgba(219, 109, 40, 0.2);
+    color: var(--accent-orange);
+}
+
+.approval-banner {
+    display: none;
+    background: linear-gradient(135deg, rgba(219, 109, 40, 0.15), rgba(210, 153, 34, 0.1));
+    border: 1px solid var(--accent-orange);
+    border-left: 4px solid var(--accent-orange);
+    margin: 0;
+    padding: 0;
+    animation: approval-pulse 2s ease-in-out infinite;
+}
+
+@keyframes approval-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+
+.approval-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    width: 100%;
+}
+
+.approval-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.approval-message {
+    flex: 1;
+    min-width: 0;
+}
+
+.approval-message strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-orange);
+    margin-bottom: 4px;
+}
+
+.approval-message p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.approval-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.approval-actions .btn {
+    padding: 8px 20px;
+    font-weight: 500;
+}

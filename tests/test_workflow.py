@@ -278,6 +278,48 @@ class TestProviderTypes:
         assert TriggerMode.DIRECTORY_SCAN.value == "directory_scan"
 
 
+class TestApprovalManager:
+    @pytest.fixture
+    def approval_manager(self):
+        from src.workflow.api import ApprovalManager
+        return ApprovalManager()
+    
+    def test_create_request(self, approval_manager):
+        future = approval_manager.create_request("exec1", "Approve this?")
+        assert approval_manager.has_pending("exec1")
+        assert approval_manager.get_pending_message("exec1") == "Approve this?"
+        assert not future.done()
+    
+    def test_resolve_approved(self, approval_manager):
+        future = approval_manager.create_request("exec1", "Approve?")
+        assert approval_manager.resolve("exec1", True)
+        assert future.done()
+        assert future.result() is True
+        assert not approval_manager.has_pending("exec1")
+    
+    def test_resolve_rejected(self, approval_manager):
+        future = approval_manager.create_request("exec1", "Approve?")
+        assert approval_manager.resolve("exec1", False)
+        assert future.done()
+        assert future.result() is False
+    
+    def test_resolve_nonexistent(self, approval_manager):
+        assert not approval_manager.resolve("nonexistent", True)
+    
+    def test_cancel_request(self, approval_manager):
+        future = approval_manager.create_request("exec1", "Approve?")
+        approval_manager.cancel("exec1")
+        assert not approval_manager.has_pending("exec1")
+        assert future.cancelled()
+    
+    def test_replace_existing_request(self, approval_manager):
+        future1 = approval_manager.create_request("exec1", "First?")
+        future2 = approval_manager.create_request("exec1", "Second?")
+        assert approval_manager.get_pending_message("exec1") == "Second?"
+        assert future1.cancelled()
+        assert not future2.done()
+
+
 class TestModelSerialization:
     def test_workflow_template_roundtrip(self):
         config = ProviderConfig(

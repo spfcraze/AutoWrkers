@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -20,6 +21,88 @@ from .oauth.storage import OAuthClientConfig
 
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
+
+
+class ApprovalManager:
+    """Manages pending approval requests for web UI."""
+    
+    DEFAULT_TIMEOUT_SECONDS = 300  # 5 minutes
+    
+    def __init__(self):
+        self._pending: dict[str, asyncio.Future[bool]] = {}
+        self._messages: dict[str, str] = {}
+        self._timeout_tasks: dict[str, asyncio.Task] = {}
+    
+    def create_request(
+        self, 
+        execution_id: str, 
+        message: str, 
+        timeout_seconds: float | None = None,
+        default_on_timeout: bool = False
+    ) -> asyncio.Future[bool]:
+        """Create a new approval request and return a Future to await."""
+        if execution_id in self._pending:
+            self._pending[execution_id].cancel()
+        if execution_id in self._timeout_tasks:
+            self._timeout_tasks[execution_id].cancel()
+        
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+        future: asyncio.Future[bool] = loop.create_future()
+        self._pending[execution_id] = future
+        self._messages[execution_id] = message
+        
+        if timeout_seconds is not None and timeout_seconds > 0:
+            async def timeout_handler():
+                await asyncio.sleep(timeout_seconds)
+                if execution_id in self._pending and not self._pending[execution_id].done():
+                    self.resolve(execution_id, default_on_timeout)
+            
+            self._timeout_tasks[execution_id] = asyncio.create_task(timeout_handler())
+        
+        return future
+    
+    def resolve(self, execution_id: str, approved: bool) -> bool:
+        """Resolve a pending approval request."""
+        if execution_id not in self._pending:
+            return False
+        
+        if execution_id in self._timeout_tasks:
+            self._timeout_tasks[execution_id].cancel()
+            del self._timeout_tasks[execution_id]
+        
+        future = self._pending.pop(execution_id)
+        self._messages.pop(execution_id, None)
+        
+        if not future.done():
+            future.set_result(approved)
+            return True
+        return False
+    
+    def get_pending_message(self, execution_id: str) -> str | None:
+        """Get the message for a pending approval."""
+        return self._messages.get(execution_id)
+    
+    def has_pending(self, execution_id: str) -> bool:
+        """Check if there's a pending approval for this execution."""
+        return execution_id in self._pending
+    
+    def cancel(self, execution_id: str):
+        """Cancel a pending approval request."""
+        if execution_id in self._timeout_tasks:
+            self._timeout_tasks[execution_id].cancel()
+            del self._timeout_tasks[execution_id]
+        
+        if execution_id in self._pending:
+            future = self._pending.pop(execution_id)
+            self._messages.pop(execution_id, None)
+            if not future.done():
+                future.cancel()
+
+
+approval_manager = ApprovalManager()
 
 
 class WorkflowCreateRequest(BaseModel):
@@ -298,8 +381,7 @@ async def run_execution(execution_id: str):
             detail=f"Cannot run execution in {execution.status.value} status"
         )
     
-    import asyncio
-    asyncio.create_task(workflow_orchestrator.run(execution_id))
+    asyncio.create_task(web_orchestrator.run(execution_id))
     
     return {"success": True, "message": "Workflow started", "execution_id": execution_id}
 
@@ -324,6 +406,39 @@ async def skip_phase(execution_id: str, phase_id: str):
     if not workflow_orchestrator.skip_phase(execution_id, phase_id):
         raise HTTPException(status_code=400, detail="Cannot skip phase")
     return {"success": True}
+
+
+@router.post("/executions/{execution_id}/approve")
+async def approve_execution(execution_id: str):
+    if not approval_manager.has_pending(execution_id):
+        raise HTTPException(status_code=400, detail="No pending approval for this execution")
+    
+    if not approval_manager.resolve(execution_id, approved=True):
+        raise HTTPException(status_code=400, detail="Failed to approve execution")
+    
+    return {"success": True, "action": "approved"}
+
+
+@router.post("/executions/{execution_id}/reject")
+async def reject_execution(execution_id: str):
+    if not approval_manager.has_pending(execution_id):
+        raise HTTPException(status_code=400, detail="No pending approval for this execution")
+    
+    if not approval_manager.resolve(execution_id, approved=False):
+        raise HTTPException(status_code=400, detail="Failed to reject execution")
+    
+    return {"success": True, "action": "rejected"}
+
+
+@router.get("/executions/{execution_id}/approval-status")
+async def get_approval_status(execution_id: str):
+    has_pending = approval_manager.has_pending(execution_id)
+    message = approval_manager.get_pending_message(execution_id) if has_pending else None
+    
+    return {
+        "has_pending_approval": has_pending,
+        "message": message,
+    }
 
 
 @router.get("/executions/{execution_id}/artifacts")
@@ -595,6 +710,9 @@ class WorkflowWebSocketManager:
         
         for ws in disconnected:
             self.connections[execution_id].discard(ws)
+    
+    def has_connections(self, execution_id: str) -> bool:
+        return execution_id in self.connections and len(self.connections[execution_id]) > 0
 
 
 ws_manager = WorkflowWebSocketManager()
@@ -606,24 +724,36 @@ async def workflow_websocket(websocket: WebSocket, execution_id: str):
     
     execution = workflow_orchestrator.get_execution(execution_id)
     if execution:
-        await websocket.send_json({
+        init_data = {
             "type": "init",
             "execution": execution.to_dict(),
-        })
+        }
+        
+        if approval_manager.has_pending(execution_id):
+            init_data["pending_approval"] = {
+                "message": approval_manager.get_pending_message(execution_id),
+            }
+        
+        await websocket.send_json(init_data)
     
     try:
         while True:
             data = await websocket.receive_json()
             
             if data.get("type") == "run":
-                import asyncio
-                asyncio.create_task(workflow_orchestrator.run(execution_id))
+                asyncio.create_task(web_orchestrator.run(execution_id))
             
             elif data.get("type") == "cancel":
                 await workflow_orchestrator.cancel(execution_id)
             
             elif data.get("type") == "approve":
-                pass
+                approved = data.get("approved", True)
+                if approval_manager.has_pending(execution_id):
+                    approval_manager.resolve(execution_id, approved)
+                    await ws_manager.broadcast(execution_id, {
+                        "type": "approval_resolved",
+                        "approved": approved,
+                    })
             
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, execution_id)
@@ -634,3 +764,56 @@ async def broadcast_workflow_event(execution_id: str, event_type: str, data: dic
         "type": event_type,
         **data,
     })
+
+
+async def web_approval_callback(execution_id: str, message: str) -> bool:
+    await ws_manager.broadcast(execution_id, {
+        "type": "approval_needed",
+        "execution_id": execution_id,
+        "message": message,
+    })
+    
+    future = approval_manager.create_request(execution_id, message)
+    
+    try:
+        return await future
+    except asyncio.CancelledError:
+        return False
+
+
+def create_web_orchestrator() -> WorkflowOrchestrator:
+    
+    async def on_workflow_status(execution_id: str, status: WorkflowStatus):
+        await broadcast_workflow_event(execution_id, "status_update", {
+            "status": status.value,
+        })
+    
+    async def on_phase_start(execution_id: str, phase: WorkflowPhase):
+        await broadcast_workflow_event(execution_id, "phase_start", {
+            "phase_id": phase.id,
+            "phase_name": phase.name,
+        })
+    
+    async def on_phase_complete(execution_id: str, phase_exec: PhaseExecution):
+        await broadcast_workflow_event(execution_id, "phase_complete", {
+            "phase_id": phase_exec.phase_id,
+            "phase_name": phase_exec.phase_name,
+            "status": phase_exec.status.value,
+        })
+    
+    async def on_phase_output(execution_id: str, phase_id: str, content: str):
+        await broadcast_workflow_event(execution_id, "phase_output", {
+            "phase_id": phase_id,
+            "content": content,
+        })
+    
+    return WorkflowOrchestrator(
+        on_phase_start=on_phase_start,
+        on_phase_complete=on_phase_complete,
+        on_phase_output=on_phase_output,
+        on_workflow_status=on_workflow_status,
+        on_approval_needed=web_approval_callback,
+    )
+
+
+web_orchestrator = create_web_orchestrator()

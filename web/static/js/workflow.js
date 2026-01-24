@@ -10,6 +10,8 @@ const workflowApp = {
     oauthStatus: {},
     editingTemplate: null,
     editingPhases: [],
+    
+    pendingApproval: null,
 
     async init() {
         await this.loadTemplates();
@@ -218,6 +220,9 @@ const workflowApp = {
             actions.push(`<button class="btn btn-primary" onclick="workflowApp.resumeExecution('${execution.id}')">Resume</button>`);
             actions.push(`<button class="btn btn-danger" onclick="workflowApp.cancelExecution('${execution.id}')">Cancel</button>`);
         }
+        if (execution.status === 'awaiting_approval') {
+            actions.push(`<button class="btn btn-danger" onclick="workflowApp.cancelExecution('${execution.id}')">Cancel</button>`);
+        }
         if (['completed', 'failed', 'cancelled'].includes(execution.status)) {
             actions.push(`<button class="btn" onclick="workflowApp.showArtifacts('${execution.id}')">View Artifacts</button>`);
         }
@@ -291,12 +296,86 @@ const workflowApp = {
     },
 
     handleWebSocketMessage(data) {
-        if (data.type === 'phase_update' || data.type === 'execution_update') {
+        if (data.type === 'phase_update' || data.type === 'execution_update' || 
+            data.type === 'status_update' || data.type === 'phase_complete') {
             this.selectExecution(this.selectedExecution.id);
         }
         if (data.type === 'init') {
             this.renderPipeline(data.execution, []);
+            if (data.pending_approval) {
+                this.showApprovalBanner(data.pending_approval.message);
+            }
         }
+        if (data.type === 'approval_needed') {
+            this.showApprovalBanner(data.message);
+        }
+        if (data.type === 'approval_resolved') {
+            this.hideApprovalBanner();
+            this.selectExecution(this.selectedExecution.id);
+        }
+    },
+    
+    showApprovalBanner(message) {
+        this.pendingApproval = { message };
+        
+        let banner = document.getElementById('approval-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'approval-banner';
+            banner.className = 'approval-banner';
+            
+            const pipelineHeader = document.getElementById('pipeline-header');
+            if (pipelineHeader) {
+                pipelineHeader.insertAdjacentElement('afterend', banner);
+            }
+        }
+        
+        banner.innerHTML = `
+            <div class="approval-banner-content">
+                <div class="approval-icon">⚠️</div>
+                <div class="approval-message">
+                    <strong>Approval Required</strong>
+                    <p>${this.escapeHtml(message)}</p>
+                </div>
+                <div class="approval-actions">
+                    <button class="btn btn-primary" onclick="workflowApp.respondToApproval(true)">Approve</button>
+                    <button class="btn btn-danger" onclick="workflowApp.respondToApproval(false)">Reject</button>
+                </div>
+            </div>
+        `;
+        banner.style.display = 'flex';
+    },
+    
+    hideApprovalBanner() {
+        this.pendingApproval = null;
+        const banner = document.getElementById('approval-banner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+    },
+    
+    async respondToApproval(approved) {
+        if (!this.selectedExecution) return;
+        
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'approve',
+                approved: approved
+            }));
+        } else {
+            const endpoint = approved ? 'approve' : 'reject';
+            try {
+                await fetch(`/api/workflow/executions/${this.selectedExecution.id}/${endpoint}`, {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.error('Failed to respond to approval:', error);
+                alert('Failed to respond to approval request');
+                return;
+            }
+        }
+        
+        this.hideApprovalBanner();
     },
 
     showPhaseDetails(phaseId) {
