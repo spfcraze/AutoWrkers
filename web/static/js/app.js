@@ -399,6 +399,12 @@ class UltraClaude {
         card.dataset.sessionId = session.id;
         card.onclick = () => this.selectSession(session.id);
 
+        // Right-click context menu (same as Kanban cards)
+        card.oncontextmenu = (e) => {
+            e.preventDefault();
+            this.showContextMenu(e.clientX, e.clientY, session.id);
+        };
+
         const statusLabel = {
             'running': 'Running',
             'needs_attention': 'Needs Attention',
@@ -977,6 +983,47 @@ class UltraClaude {
         }
     }
 
+    contextMenuDelete() {
+        this.hideContextMenu();
+        if (confirm('Are you sure you want to DELETE this session? This cannot be undone.')) {
+            this.deleteSession(this.contextMenuSessionId);
+        }
+    }
+
+    async deleteSession(sessionId) {
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove from local state
+                this.sessions.delete(sessionId);
+                this.outputBuffers.delete(sessionId);
+                this.lastOutputTime.delete(sessionId);
+
+                // Clear active session if it was the deleted one
+                if (this.activeSessionId === sessionId) {
+                    this.activeSessionId = null;
+                    document.getElementById('active-session-title').textContent = 'Select a session';
+                    document.getElementById('terminal-output').innerHTML =
+                        '<div class="placeholder">Click on a session card to view its output</div>';
+                }
+
+                // Re-render
+                this.renderCurrentView();
+                this.updateStats();
+                Toast.success('Session Deleted', `Session #${sessionId} has been deleted`);
+            } else {
+                Toast.error('Delete Failed', data.detail || 'Could not delete session');
+            }
+        } catch (e) {
+            console.error('Failed to delete session:', e);
+            Toast.error('Delete Failed', 'Could not delete session');
+        }
+    }
+
     // ============== PARENT SELECTION MODAL ==============
 
     showParentModal(sessionId) {
@@ -1265,8 +1312,41 @@ class UltraClaude {
 const app = new UltraClaude();
 
 // Global functions for HTML onclick handlers
-function createSession() {
+async function createSession() {
     document.getElementById('new-session-modal').classList.add('open');
+
+    // Auto-fill working directory from server's current directory
+    try {
+        const response = await fetch('/api/server/info');
+        const data = await response.json();
+
+        // Auto-fill working directory
+        const dirInput = document.getElementById('session-dir');
+        if (dirInput && data.working_directory && !dirInput.value) {
+            dirInput.value = data.working_directory;
+
+            // Update hint if present
+            const hint = dirInput.nextElementSibling;
+            if (hint && hint.classList.contains('form-hint')) {
+                hint.innerHTML = `Auto-filled from server directory ${data.is_git_repo ? '(git repo detected)' : ''}`;
+            }
+        }
+
+        // Auto-fill session name from directory name
+        const nameInput = document.getElementById('session-name');
+        if (nameInput && data.working_directory && !nameInput.value) {
+            const dirName = data.working_directory.split('/').pop() || data.working_directory.split('\\').pop();
+            if (dirName) {
+                // Convert kebab-case or snake_case to Title Case
+                nameInput.value = dirName
+                    .replace(/[-_]/g, ' ')
+                    .replace(/\b\w/g, c => c.toUpperCase());
+            }
+        }
+    } catch (e) {
+        console.log('Could not fetch server info for auto-fill:', e);
+    }
+
     document.getElementById('session-name').focus();
 }
 

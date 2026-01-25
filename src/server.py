@@ -217,6 +217,56 @@ async def get_version():
     }
 
 
+@app.get("/api/server/info")
+async def get_server_info():
+    """Get server information including the current working directory.
+
+    This is useful for auto-filling the project working directory field
+    when Claude Code is run from within a project directory.
+    """
+    import os
+
+    cwd = os.getcwd()
+
+    # Check if current directory is a git repo
+    is_git_repo = os.path.isdir(os.path.join(cwd, ".git"))
+
+    # Try to detect the repo name from git remote
+    repo_name = None
+    if is_git_repo:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                remote_url = result.stdout.strip()
+                # Parse owner/repo from various URL formats
+                # https://github.com/owner/repo.git
+                # git@github.com:owner/repo.git
+                if "github.com" in remote_url:
+                    if remote_url.startswith("git@"):
+                        # git@github.com:owner/repo.git
+                        repo_name = remote_url.split(":")[-1].replace(".git", "")
+                    else:
+                        # https://github.com/owner/repo.git
+                        parts = remote_url.replace(".git", "").split("/")
+                        if len(parts) >= 2:
+                            repo_name = f"{parts[-2]}/{parts[-1]}"
+        except Exception:
+            pass
+
+    return {
+        "working_directory": cwd,
+        "is_git_repo": is_git_repo,
+        "detected_repo": repo_name,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {
@@ -271,6 +321,15 @@ async def send_input(session_id: int, data: str):
 @app.post("/api/sessions/{session_id}/stop")
 async def stop_session(session_id: int):
     success = await manager.stop_session(session_id)
+    return {"success": success}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: int):
+    """Delete a session completely (stops it first if running)"""
+    success = await manager.remove_session(session_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"success": success}
 
 

@@ -148,6 +148,7 @@
             <div class="form-group">
                 <label for="session-dir">Working Directory</label>
                 <input type="text" id="session-dir" placeholder="/path/to/project">
+                <span class="form-hint">Path to your project directory</span>
             </div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeModal()">Cancel</button>
@@ -170,6 +171,9 @@
         </div>
         <div class="context-menu-item context-menu-danger" onclick="app.contextMenuStop()">
             <span class="context-icon">■</span> Stop Session
+        </div>
+        <div class="context-menu-item context-menu-danger" onclick="app.contextMenuDelete()">
+            <span class="context-icon">🗑</span> Delete Session
         </div>
     </div>
 

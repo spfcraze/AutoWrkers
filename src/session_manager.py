@@ -710,6 +710,34 @@ class SessionManager:
             print(f"Stop error for session {session_id}: {e}")
             return False
 
+    async def remove_session(self, session_id: int) -> bool:
+        """Remove a session completely (stop it first if running, then delete from storage)"""
+        session = self.sessions.get(session_id)
+        if not session:
+            return False
+
+        try:
+            # Stop the session first if it's running
+            if session.status in (SessionStatus.RUNNING, SessionStatus.STARTING, SessionStatus.NEEDS_ATTENTION):
+                await self.stop_session(session_id)
+
+            # Remove from sessions dict
+            del self.sessions[session_id]
+
+            # Remove from output buffers if tracked
+            if hasattr(self, 'output_buffers') and session_id in self.output_buffers:
+                del self.output_buffers[session_id]
+
+            # Save updated sessions to storage
+            self._save_sessions()
+
+            print(f"[INFO] Removed session {session_id}")
+            return True
+
+        except Exception as e:
+            print(f"Remove error for session {session_id}: {e}")
+            return False
+
     def get_session(self, session_id: int) -> Optional[Session]:
         return self.sessions.get(session_id)
 

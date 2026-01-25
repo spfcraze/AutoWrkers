@@ -848,8 +848,47 @@ class ProjectsManager {
 const projectsManager = new ProjectsManager();
 
 // Modal functions
-function showCreateProjectModal() {
+async function showCreateProjectModal() {
     document.getElementById('create-project-modal').classList.add('open');
+
+    // Auto-fill working directory and repo from server's current directory
+    try {
+        const response = await fetch('/api/server/info');
+        const data = await response.json();
+
+        // Auto-fill working directory
+        const workingDirInput = document.getElementById('working-dir');
+        if (workingDirInput && data.working_directory && !workingDirInput.value) {
+            workingDirInput.value = data.working_directory;
+
+            // Show a hint that it was auto-filled
+            const hint = workingDirInput.nextElementSibling;
+            if (hint && hint.classList.contains('form-hint')) {
+                hint.innerHTML = `Auto-filled from server directory ${data.is_git_repo ? '(git repo detected)' : ''}`;
+            }
+        }
+
+        // Auto-fill GitHub repo if detected
+        const repoInput = document.getElementById('github-repo');
+        if (repoInput && data.detected_repo && !repoInput.value) {
+            repoInput.value = data.detected_repo;
+        }
+
+        // Auto-fill project name from directory name
+        const nameInput = document.getElementById('project-name');
+        if (nameInput && data.working_directory && !nameInput.value) {
+            const dirName = data.working_directory.split('/').pop() || data.working_directory.split('\\').pop();
+            if (dirName) {
+                // Convert kebab-case or snake_case to Title Case
+                nameInput.value = dirName
+                    .replace(/[-_]/g, ' ')
+                    .replace(/\b\w/g, c => c.toUpperCase());
+            }
+        }
+    } catch (e) {
+        console.log('Could not fetch server info for auto-fill:', e);
+    }
+
     document.getElementById('project-name').focus();
 }
 
