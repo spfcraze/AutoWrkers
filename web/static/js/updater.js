@@ -169,8 +169,13 @@ const UpdateChecker = {
         } else {
             statusHtml += `
                 <div class="update-git-info">
-                    <div class="update-git-warning">
-                        Not a git repository. Manual update required.
+                    <div class="update-git-row">
+                        <span class="update-git-label">Install Type:</span>
+                        <span class="update-git-value">Standalone (no git)</span>
+                    </div>
+                    <div class="update-git-info-note">
+                        Updates will be downloaded directly from GitHub.
+                        Your data and settings will be preserved.
                     </div>
                 </div>
             `;
@@ -179,20 +184,14 @@ const UpdateChecker = {
         body.innerHTML = statusHtml;
 
         let actionsHtml = '';
-        
-        if (update.update_available && git.is_git) {
+
+        if (update.update_available) {
+            // Show install button for both git and non-git installations
             actionsHtml = `
                 <button class="btn" onclick="UpdateChecker.closeModal()">Later</button>
-                <button class="btn btn-primary" onclick="UpdateChecker.installUpdate()" id="update-install-btn">
-                    Install Update
+                <button class="btn btn-primary" onclick="UpdateChecker.confirmAndInstall()" id="update-install-btn">
+                    Download & Install Update
                 </button>
-            `;
-        } else if (update.update_available) {
-            actionsHtml = `
-                <button class="btn" onclick="UpdateChecker.closeModal()">Close</button>
-                <a class="btn btn-primary" href="${update.release_url || 'https://github.com/spfcraze/Ultra-Claude'}" target="_blank">
-                    Download from GitHub
-                </a>
             `;
         } else {
             actionsHtml = `
@@ -206,21 +205,63 @@ const UpdateChecker = {
         actions.innerHTML = actionsHtml;
     },
 
+    confirmAndInstall() {
+        const git = this.updateInfo?.git;
+        const isGit = git?.is_git;
+
+        // Show warning modal
+        const body = document.getElementById('update-modal-body');
+        const actions = document.getElementById('update-modal-actions');
+
+        body.innerHTML = `
+            <div class="update-warning">
+                <div class="update-warning-icon">⚠️</div>
+                <div class="update-warning-title">Ready to Update</div>
+                <div class="update-warning-text">
+                    ${isGit ?
+                        'This will pull the latest changes from GitHub.' :
+                        'This will download and install the latest version from GitHub.'
+                    }
+                </div>
+                <div class="update-preserve-info">
+                    <div class="update-preserve-title">✓ The following will be preserved:</div>
+                    <ul class="update-preserve-list">
+                        <li>Database files (*.db, *.sqlite)</li>
+                        <li>Configuration files (.env, config.*)</li>
+                        <li>Session data (sessions.json)</li>
+                        <li>Virtual environment (venv/)</li>
+                        <li>Backup files (backups/)</li>
+                    </ul>
+                </div>
+                <div class="update-backup-note">
+                    A backup will be created before updating.
+                </div>
+            </div>
+        `;
+
+        actions.innerHTML = `
+            <button class="btn" onclick="UpdateChecker.renderModalContent()">Cancel</button>
+            <button class="btn btn-primary" onclick="UpdateChecker.installUpdate()" id="update-install-btn">
+                Confirm & Install
+            </button>
+        `;
+    },
+
     async installUpdate() {
         const btn = document.getElementById('update-install-btn');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'Installing...';
+            btn.textContent = 'Downloading & Installing...';
         }
 
         try {
             const response = await fetch('/api/update/install', { method: 'POST' });
             const data = await response.json();
 
+            const body = document.getElementById('update-modal-body');
+            const actions = document.getElementById('update-modal-actions');
+
             if (data.success) {
-                const body = document.getElementById('update-modal-body');
-                const actions = document.getElementById('update-modal-actions');
-                
                 if (data.already_up_to_date) {
                     body.innerHTML = `
                         <div class="update-status update-current">
@@ -232,12 +273,20 @@ const UpdateChecker = {
                     `;
                     actions.innerHTML = '<button class="btn btn-primary" onclick="UpdateChecker.closeModal()">Close</button>';
                 } else {
+                    let detailText = 'Please restart the server to apply changes.';
+                    if (data.method === 'download') {
+                        detailText = `${data.message || 'Update complete.'} Please restart the server.`;
+                    }
+                    if (data.backup_path) {
+                        detailText += `<br><small>Backup saved to: ${this.escapeHtml(data.backup_path)}</small>`;
+                    }
+
                     body.innerHTML = `
                         <div class="update-status update-success">
                             <span class="update-icon">✓</span>
                             <div>
                                 <div class="update-status-title">Update installed successfully!</div>
-                                <div class="update-status-detail">Please restart the server to apply changes.</div>
+                                <div class="update-status-detail">${detailText}</div>
                             </div>
                         </div>
                     `;
@@ -246,23 +295,42 @@ const UpdateChecker = {
                     `;
                 }
             } else {
-                const body = document.getElementById('update-modal-body');
-                body.innerHTML += `
-                    <div class="update-error-message">
-                        <strong>Update failed:</strong> ${this.escapeHtml(data.error || 'Unknown error')}
+                body.innerHTML = `
+                    <div class="update-status update-error">
+                        <span class="update-icon">✕</span>
+                        <div>
+                            <div class="update-status-title">Update failed</div>
+                            <div class="update-status-detail">${this.escapeHtml(data.error || 'Unknown error')}</div>
+                        </div>
                     </div>
                 `;
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Retry Update';
-                }
+                actions.innerHTML = `
+                    <button class="btn" onclick="UpdateChecker.renderModalContent()">Back</button>
+                    <button class="btn btn-primary" onclick="UpdateChecker.installUpdate()" id="update-install-btn">
+                        Retry
+                    </button>
+                `;
             }
         } catch (error) {
             console.error('Update failed:', error);
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Retry Update';
-            }
+            const body = document.getElementById('update-modal-body');
+            const actions = document.getElementById('update-modal-actions');
+
+            body.innerHTML = `
+                <div class="update-status update-error">
+                    <span class="update-icon">✕</span>
+                    <div>
+                        <div class="update-status-title">Update failed</div>
+                        <div class="update-status-detail">Network error: ${this.escapeHtml(error.message)}</div>
+                    </div>
+                </div>
+            `;
+            actions.innerHTML = `
+                <button class="btn" onclick="UpdateChecker.renderModalContent()">Back</button>
+                <button class="btn btn-primary" onclick="UpdateChecker.installUpdate()" id="update-install-btn">
+                    Retry
+                </button>
+            `;
         }
     },
 
