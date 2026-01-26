@@ -521,8 +521,11 @@ async def get_server_info():
     when Claude Code is run from within a project directory.
     """
     import os
+    from pathlib import Path
 
     cwd = os.getcwd()
+    if not os.path.isdir(cwd):
+        cwd = str(Path.home())
 
     # Check if current directory is a git repo
     is_git_repo = os.path.isdir(os.path.join(cwd, ".git"))

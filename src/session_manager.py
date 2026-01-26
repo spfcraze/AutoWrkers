@@ -252,7 +252,8 @@ class SessionManager:
             name = f"Claude {session_id}"
 
         if working_dir is None:
-            working_dir = os.getcwd()
+            cwd = os.getcwd()
+            working_dir = cwd if os.path.isdir(cwd) else str(Path.home())
 
         # Validate working directory exists
         if not os.path.isdir(working_dir):
