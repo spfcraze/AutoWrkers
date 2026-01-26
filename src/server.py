@@ -703,12 +703,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 working_dir = data.get("working_dir")
                 parent_id = data.get("parent_id")
                 initial_prompt = data.get("initial_prompt")
+                create_dir = data.get("create_dir", False)
                 try:
                     session = manager.create_session(
                         name=name,
                         working_dir=working_dir,
                         parent_id=parent_id,
-                        initial_prompt=initial_prompt
+                        initial_prompt=initial_prompt,
+                        create_dir=create_dir,
                     )
                     await manager.start_session(session)
                 except ValueError as e:

@@ -171,6 +171,17 @@ class UltraClaude {
 
     handleError(message) {
         console.error('Server error:', message);
+        // Offer to create missing working directory
+        if (message.includes('Working directory does not exist:') && this._pendingCreate) {
+            const dir = message.split(': ').slice(1).join(': ');
+            if (confirm(`Directory does not exist:\n${dir}\n\nCreate it?`)) {
+                const { name, workingDir } = this._pendingCreate;
+                this._pendingCreate = null;
+                this.createSession(name, workingDir, true);
+                return;
+            }
+            this._pendingCreate = null;
+        }
         Toast.error('Error', message);
     }
 
@@ -646,11 +657,13 @@ class UltraClaude {
         document.getElementById('terminal-input').value = '';
     }
 
-    createSession(name, workingDir) {
+    createSession(name, workingDir, createDir = false) {
+        this._pendingCreate = { name, workingDir };
         this.ws.send(JSON.stringify({
             type: 'create',
             name: name || undefined,
-            working_dir: workingDir || undefined
+            working_dir: workingDir || undefined,
+            create_dir: createDir || undefined
         }));
     }
 

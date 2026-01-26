@@ -243,6 +243,7 @@ class SessionManager:
         initial_prompt: Optional[str] = None,
         llm_provider_type: str = "claude_code",
         llm_config: Optional[Any] = None,
+        create_dir: bool = False,
     ) -> Session:
         with self._lock:
             session_id = self._next_id
@@ -255,9 +256,12 @@ class SessionManager:
             cwd = os.getcwd()
             working_dir = cwd if os.path.isdir(cwd) else str(Path.home())
 
-        # Validate working directory exists
+        # Create working directory if requested and it doesn't exist
         if not os.path.isdir(working_dir):
-            raise ValueError(f"Working directory does not exist: {working_dir}")
+            if create_dir:
+                os.makedirs(working_dir, exist_ok=True)
+            else:
+                raise ValueError(f"Working directory does not exist: {working_dir}")
 
         # Validate parent exists if specified
         if parent_id is not None:
