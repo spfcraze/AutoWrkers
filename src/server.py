@@ -2368,7 +2368,7 @@ async def update_system_setting(key: str, setting: SettingUpdate):
 # ==================== Telegram Bot API ====================
 
 class TelegramStartRequest(BaseModel):
-    bot_token: str
+    bot_token: Optional[str] = None
     allowed_user_ids: List[int] = []
 
 class TelegramConfigUpdate(BaseModel):
@@ -2391,11 +2391,12 @@ async def telegram_start(req: TelegramStartRequest):
     """Start the Telegram bot."""
     try:
         await telegram_bot.start(token=req.bot_token, allowed_users=req.allowed_user_ids)
-        # Register callbacks if not already registered
-        manager.add_status_callback(telegram_bot._on_session_status)
-        manager.add_completion_callback(telegram_bot._on_session_complete)
-        automation_controller.add_event_callback(telegram_bot._on_automation_event)
-        return {"success": True, "status": telegram_bot.get_status()}
+        # Register callbacks only after successful start
+        if telegram_bot._running:
+            manager.add_status_callback(telegram_bot._on_session_status)
+            manager.add_completion_callback(telegram_bot._on_session_complete)
+            automation_controller.add_event_callback(telegram_bot._on_automation_event)
+        return {"success": telegram_bot._running, "status": telegram_bot.get_status()}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

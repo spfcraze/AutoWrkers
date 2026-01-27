@@ -641,33 +641,30 @@ function updateTelegramUI(status, config) {
 }
 
 async function startTelegramBot() {
-    const token = document.getElementById('tg-bot-token').value;
+    const tokenInput = document.getElementById('tg-bot-token');
+    const token = tokenInput.value;
     const usersStr = document.getElementById('tg-allowed-users').value;
-
-    if (!token) {
-        alert('Please enter a bot token first.');
-        return;
-    }
 
     const allowedUsers = usersStr
         ? usersStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
         : [];
 
+    const body = { allowed_user_ids: allowedUsers };
+    if (token) {
+        body.bot_token = token;
+    }
+
     try {
         const response = await fetch('/api/telegram/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bot_token: token,
-                allowed_user_ids: allowedUsers
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
 
         if (data.success) {
-            // Clear the token field after successful start
-            document.getElementById('tg-bot-token').value = '';
+            tokenInput.value = '';
             loadTelegramStatus();
         } else {
             alert('Error starting bot: ' + (data.error || 'Unknown error'));

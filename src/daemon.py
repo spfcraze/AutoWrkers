@@ -38,8 +38,17 @@ class DaemonInfo:
     error: Optional[str] = None
 
     def to_dict(self) -> dict:
+        import sys as _sys
+        is_installed = self.status != DaemonStatus.NOT_INSTALLED
+        is_running = self.status == DaemonStatus.RUNNING
+        platform = "linux" if _sys.platform.startswith("linux") else ("macos" if _sys.platform == "darwin" else _sys.platform)
+        service_type = "systemd" if platform == "linux" else ("launchd" if platform == "macos" else "unknown")
         return {
             "status": self.status.value,
+            "installed": is_installed,
+            "running": is_running,
+            "platform": platform,
+            "service_type": service_type,
             "pid": self.pid,
             "uptime": self.uptime,
             "service_path": self.service_path,
@@ -52,9 +61,16 @@ class DaemonManager:
 
     def __init__(self):
         self._project_root = self._find_project_root()
-        self._python_path = sys.executable
+        self._python_path = self._find_python()
         self._is_linux = sys.platform.startswith("linux")
         self._is_macos = sys.platform == "darwin"
+
+    def _find_python(self) -> str:
+        """Find the best Python interpreter, preferring the project venv."""
+        venv_python = self._project_root / "venv" / "bin" / "python3"
+        if venv_python.exists():
+            return str(venv_python)
+        return sys.executable
 
     def _find_project_root(self) -> Path:
         """Find the UltraClaude project root directory."""
@@ -70,6 +86,8 @@ class DaemonManager:
         user = os.environ.get("USER", "root")
         working_dir = str(self._project_root)
 
+        home_dir = os.environ.get('HOME', f'/home/{user}')
+
         return f"""[Unit]
 Description={SERVICE_DESCRIPTION}
 After=network.target
@@ -77,27 +95,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User={user}
 WorkingDirectory={working_dir}
 ExecStart={self._python_path} main.py start --host {host} --port {port}
 Restart=always
 RestartSec=10
 Environment="PATH={os.environ.get('PATH', '/usr/bin:/bin')}"
-Environment="HOME={os.environ.get('HOME', f'/home/{user}')}"
+Environment="HOME={home_dir}"
 
 # Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier={SERVICE_NAME}
 
-# Security hardening
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths={working_dir} {os.environ.get('HOME', '')}/.ultraclaude
-
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 """
 
     def _generate_launchd_plist(self, host: str = "127.0.0.1", port: int = 8420) -> str:
@@ -344,10 +355,28 @@ WantedBy=multi-user.target
         else:
             return {"success": False, "error": f"Unsupported platform: {sys.platform}"}
 
-        if result.returncode == 0:
+        if result.returncode != 0:
+            return {"success": False, "error": result.stderr or "Failed to start service"}
+
+        # Verify service actually started (systemctl start can return 0 even if it fails shortly after)
+        await asyncio.sleep(2)
+        status = await self.get_status()
+        if status.status == DaemonStatus.RUNNING:
             return {"success": True, "message": "Service started"}
         else:
-            return {"success": False, "error": result.stderr or "Failed to start service"}
+            # Get journal logs for the failure reason
+            error_detail = ""
+            if self._is_linux:
+                log_result = subprocess.run(
+                    ["journalctl", "--user", "-u", SERVICE_NAME, "-n", "5", "--no-pager", "-o", "cat"],
+                    capture_output=True, text=True
+                )
+                if log_result.returncode == 0 and log_result.stdout.strip():
+                    error_detail = log_result.stdout.strip()
+            return {
+                "success": False,
+                "error": f"Service failed to start.{(' ' + error_detail) if error_detail else ''}"
+            }
 
     async def stop(self) -> dict:
         """Stop the UltraClaude service."""

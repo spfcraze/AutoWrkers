@@ -20,6 +20,8 @@ COMMANDS: List[BotCommand] = [
     BotCommand("sessions", "List active sessions"),
     BotCommand("session", "Session details - /session <id>"),
     BotCommand("send", "Send input to session - /send <id> <text>"),
+    BotCommand("focus", "Focus on session - /focus <id>"),
+    BotCommand("unfocus", "Detach from focused session"),
     BotCommand("create", "Create session - /create <name>"),
     BotCommand("stop", "Stop session - /stop <id>"),
     BotCommand("output", "Recent session output - /output <id>"),
