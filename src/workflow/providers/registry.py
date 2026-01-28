@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from .base import WorkflowLLMProvider, ModelInfo
+from .claude_code import ClaudeCodeProvider, CLAUDE_CODE_MODELS
 from .gemini import GeminiSDKProvider, GeminiOpenRouterProvider, GEMINI_MODELS
 from .gemini_oauth import GeminiOAuthProvider
 from .openai import OpenAIProvider, OpenRouterProvider, OPENAI_MODELS
@@ -68,6 +69,10 @@ class ModelRegistry:
             return LMStudioProvider(config)
         elif config.provider_type == ProviderType.CLAUDE_SDK:
             return ClaudeSDKProvider(config)
+        elif config.provider_type == ProviderType.CLAUDE_CODE:
+            return ClaudeCodeProvider(config)
+        elif config.provider_type == ProviderType.NONE:
+            raise ValueError("Provider type 'none' cannot be used for generation")
         else:
             raise ValueError(f"Unsupported provider type: {config.provider_type}")
 
@@ -140,7 +145,12 @@ class ModelRegistry:
             config = ProviderConfig(provider_type=ProviderType.CLAUDE_SDK)
             provider = ClaudeSDKProvider(config)
             models = await provider.list_models()
-        
+
+        elif provider_type == ProviderType.CLAUDE_CODE:
+            config = ProviderConfig(provider_type=ProviderType.CLAUDE_CODE)
+            provider = ClaudeCodeProvider(config)
+            models = await provider.list_models()
+
         for model in models:
             db.upsert_model({
                 'provider': provider_type.value,
@@ -162,12 +172,13 @@ class ModelRegistry:
         result: dict[str, list[ModelInfo]] = {}
         
         for ptype in [
+            ProviderType.CLAUDE_CODE,
+            ProviderType.CLAUDE_SDK,
             ProviderType.GEMINI_SDK,
             ProviderType.OPENAI,
             ProviderType.OPENROUTER,
             ProviderType.OLLAMA,
             ProviderType.LM_STUDIO,
-            ProviderType.CLAUDE_SDK,
         ]:
             try:
                 models = await self.refresh_models(ptype)

@@ -278,8 +278,14 @@ body {
 }
 
 .panel-header {
-    padding: 16px;
+    padding: 16px 16px 12px;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.panel-header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -288,65 +294,118 @@ body {
 .panel-header h2 {
     font-size: 16px;
     font-weight: 600;
+    margin: 0;
 }
 
 .filter-buttons {
     display: flex;
-    gap: 4px;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .filter-btn {
-    padding: 4px 10px;
-    border: none;
-    border-radius: 4px;
+    padding: 5px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
     font-size: 12px;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .filter-btn:hover {
     background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
 }
 
 .filter-btn.active {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+.filter-count {
+    display: inline-block;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 8px;
+    background: rgba(139, 148, 158, 0.2);
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.filter-btn.active .filter-count {
+    background: rgba(88, 166, 255, 0.25);
+    color: var(--accent-cyan);
 }
 
 /* Sessions Grid */
 .sessions-grid {
     flex: 1;
     overflow-y: auto;
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 /* Session Card */
 .session-card {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px 14px 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
+    position: relative;
 }
 
 .session-card:hover {
-    border-color: var(--accent-cyan);
+    background: rgba(33, 38, 45, 0.8);
+    border-color: rgba(88, 166, 255, 0.4);
+    border-left-color: var(--accent-cyan);
+    transform: translateX(2px);
 }
 
 .session-card.active {
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 1px var(--accent-cyan);
+    border-left-color: var(--accent-cyan);
+    background: rgba(88, 166, 255, 0.06);
+    box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.3);
 }
 
 .session-card.needs-attention {
-    border-color: var(--accent-yellow);
+    border-left-color: var(--accent-yellow);
     animation: pulse 2s infinite;
+}
+
+.session-card.status-running-card {
+    border-left-color: var(--accent-green);
+}
+
+.session-card.status-stopped-card {
+    border-left-color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.session-card.status-error-card {
+    border-left-color: var(--accent-red);
+}
+
+.session-card.status-starting-card {
+    border-left-color: var(--accent-purple);
+}
+
+.session-card.status-completed-card {
+    border-left-color: var(--accent-green);
+    opacity: 0.8;
 }
 
 @keyframes pulse {
@@ -356,66 +415,77 @@ body {
 
 .session-card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    gap: 8px;
 }
 
 .session-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .session-id {
     background: var(--bg-secondary);
-    padding: 2px 6px;
+    padding: 1px 6px;
     border-radius: 4px;
     font-size: 11px;
+    font-weight: 500;
     color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 .status-badge {
     padding: 2px 8px;
     border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .status-running {
-    background: rgba(63, 185, 80, 0.2);
+    background: rgba(63, 185, 80, 0.15);
     color: var(--accent-green);
 }
 
 .status-needs_attention {
-    background: rgba(210, 153, 34, 0.2);
+    background: rgba(210, 153, 34, 0.15);
     color: var(--accent-yellow);
 }
 
 .status-stopped {
-    background: rgba(139, 148, 158, 0.2);
+    background: rgba(139, 148, 158, 0.15);
     color: var(--text-secondary);
 }
 
 .status-error {
-    background: rgba(248, 81, 73, 0.2);
+    background: rgba(248, 81, 73, 0.15);
     color: var(--accent-red);
 }
 
 .status-starting {
-    background: rgba(163, 113, 247, 0.2);
+    background: rgba(163, 113, 247, 0.15);
     color: var(--accent-purple);
 }
 
 .status-queued {
-    background: rgba(88, 166, 255, 0.2);
+    background: rgba(88, 166, 255, 0.15);
     color: var(--accent-cyan);
 }
 
 .status-completed {
-    background: rgba(63, 185, 80, 0.3);
+    background: rgba(63, 185, 80, 0.2);
     color: var(--accent-green);
 }
 
@@ -483,20 +553,20 @@ body {
 }
 
 .session-children {
-    margin-left: 20px;
+    margin-left: 16px;
     padding-left: 12px;
     border-left: 2px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
+    gap: 4px;
+    margin-top: 4px;
 }
 
 /* Child Session Cards */
 .session-card-child {
     background: var(--bg-secondary);
     border-color: var(--border-color);
-    padding: 10px;
+    padding: 10px 12px;
     position: relative;
 }
 
@@ -516,13 +586,13 @@ body {
 
 .session-card.queued {
     border-style: dashed;
-    opacity: 0.8;
+    opacity: 0.7;
 }
 
 .child-indicator {
     color: var(--accent-cyan);
-    font-size: 14px;
-    margin-right: 4px;
+    font-size: 13px;
+    margin-right: 2px;
 }
 
 .parent-info {
@@ -535,16 +605,35 @@ body {
 }
 
 .session-meta {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
+    line-height: 1.3;
+}
+
+.session-meta-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.session-meta-sep {
+    color: var(--border-color);
+    flex-shrink: 0;
+}
+
+.session-meta-time {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    opacity: 0.7;
 }
 
 .session-preview {
     margin-top: 8px;
-    padding: 8px;
+    padding: 6px 8px;
     background: var(--bg-primary);
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', monospace;
@@ -553,7 +642,9 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-height: 40px;
+    max-height: 36px;
+    line-height: 1.4;
+    border: 1px solid rgba(48, 54, 61, 0.5);
 }
 
 /* Terminal Panel */

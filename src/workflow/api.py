@@ -28,6 +28,15 @@ from ..database import db
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 
 
+def _safe_artifact_type(value: str) -> "ArtifactType":
+    """Convert string to ArtifactType with fallback to 'custom' for invalid values."""
+    from .models import ArtifactType
+    try:
+        return ArtifactType(value)
+    except ValueError:
+        return ArtifactType("custom")
+
+
 class ApprovalManager:
     
     DEFAULT_TIMEOUT_SECONDS = 300
@@ -63,6 +72,8 @@ class ApprovalManager:
         self._created_at[execution_id] = datetime.now()
         
         effective_timeout = timeout_seconds if timeout_seconds is not None else self.DEFAULT_TIMEOUT_SECONDS
+        if effective_timeout is not None and effective_timeout < 0:
+            effective_timeout = self.DEFAULT_TIMEOUT_SECONDS
         self._timeout_values[execution_id] = effective_timeout
         
         if effective_timeout > 0:
@@ -116,8 +127,9 @@ class ApprovalManager:
                 "timeout_seconds": timeout_val,
                 "was_timeout": was_timeout,
             })
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger("ultraclaude.workflow").warning(f"Failed to record approval: {e}")
     
     def get_pending_message(self, execution_id: str) -> str | None:
         """Get the message for a pending approval."""
@@ -242,7 +254,7 @@ async def create_template(request: TemplateCreateRequest):
             role=PhaseRole(p.get("role", "analyzer")),
             provider_config=provider_config,
             prompt_template=p.get("prompt_template", ""),
-            output_artifact_type=ArtifactType(p.get("output_artifact_type", p.get("output_type", "custom"))),
+            output_artifact_type=_safe_artifact_type(p.get("output_artifact_type", p.get("output_type", "custom"))),
             success_pattern=p.get("success_pattern", "/complete"),
             can_skip=p.get("can_skip", True),
             can_iterate=p.get("can_iterate", False),
@@ -308,7 +320,7 @@ async def update_template(template_id: str, request: TemplateCreateRequest):
             role=PhaseRole(p.get("role", "analyzer")),
             provider_config=provider_config,
             prompt_template=p.get("prompt_template", ""),
-            output_artifact_type=ArtifactType(p.get("output_artifact_type", p.get("output_type", "custom"))),
+            output_artifact_type=_safe_artifact_type(p.get("output_artifact_type", p.get("output_type", "custom"))),
             success_pattern=p.get("success_pattern", "/complete"),
             can_skip=p.get("can_skip", True),
             can_iterate=p.get("can_iterate", False),
@@ -539,9 +551,12 @@ async def get_artifact_content(artifact_id: str):
     return {"content": content}
 
 
+class ArtifactUpdateRequest(BaseModel):
+    content: str
+
 @router.put("/artifacts/{artifact_id}")
-async def update_artifact(artifact_id: str, content: str):
-    if not artifact_manager.update_content(artifact_id, content):
+async def update_artifact(artifact_id: str, request: ArtifactUpdateRequest):
+    if not artifact_manager.update_content(artifact_id, request.content):
         raise HTTPException(status_code=404, detail="Artifact not found")
     return {"success": True}
 

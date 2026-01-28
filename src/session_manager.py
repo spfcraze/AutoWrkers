@@ -128,13 +128,26 @@ class SessionManager:
 
                 # Check if tmux session still exists
                 if tmux_name in running_tmux:
+                    # Restore saved status, default to RUNNING for active tmux sessions
+                    saved_status = session_data.get("status", "running")
+                    try:
+                        status = SessionStatus(saved_status)
+                    except ValueError:
+                        status = SessionStatus.RUNNING
+                    # If tmux is alive, it's at least running
+                    if status in (SessionStatus.STOPPED, SessionStatus.ERROR):
+                        status = SessionStatus.RUNNING
+
                     session = Session(
                         id=session_data["id"],
                         name=session_data["name"],
                         working_dir=session_data["working_dir"],
                         tmux_session=tmux_name,
-                        status=SessionStatus.RUNNING,
+                        status=status,
                         created_at=session_data.get("created_at", datetime.now().isoformat()),
+                        parent_id=session_data.get("parent_id"),
+                        initial_prompt=session_data.get("initial_prompt"),
+                        llm_provider_type=session_data.get("llm_provider_type", "claude_code"),
                     )
                     self.sessions[session.id] = session
 
@@ -142,7 +155,7 @@ class SessionManager:
                     if session.id >= self._next_id:
                         self._next_id = session.id + 1
 
-                    print(f"[INFO] Reconnected to session {session.id}: {session.name}")
+                    print(f"[INFO] Reconnected to session {session.id}: {session.name} (status: {status.value})")
                 else:
                     print(f"[INFO] Session {session_data['name']} tmux not found, skipping")
 
@@ -592,10 +605,14 @@ class SessionManager:
                 print(f"Read error for session {session.id}: {e}")
                 await asyncio.sleep(1)
 
+        # Only mark as stopped if the tmux session is actually gone.
+        # If tmux is still alive, the server is just shutting down — keep
+        # the session as RUNNING so it persists and reconnects on restart.
         if session.status not in (SessionStatus.STOPPED, SessionStatus.ERROR):
-            session.status = SessionStatus.STOPPED
+            if not self._tmux_session_exists(session.tmux_session):
+                session.status = SessionStatus.STOPPED
+                await self._notify_status(session.id, session.status)
 
-        await self._notify_status(session.id, session.status)
         self._save_sessions()
 
     async def send_input(self, session_id: int, data: str) -> bool:

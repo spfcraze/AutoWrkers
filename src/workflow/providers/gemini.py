@@ -5,10 +5,16 @@ from .base import WorkflowLLMProvider, GenerationResult, ModelInfo, ProviderStat
 from ..models import ProviderConfig, ProviderType
 
 try:
-    import google.generativeai as genai
+    from google import genai as genai_new
     GEMINI_SDK_AVAILABLE = True
+    GEMINI_SDK_NEW = True
 except ImportError:
-    GEMINI_SDK_AVAILABLE = False
+    GEMINI_SDK_NEW = False
+    try:
+        import google.generativeai as genai_old
+        GEMINI_SDK_AVAILABLE = True
+    except ImportError:
+        GEMINI_SDK_AVAILABLE = False
 
 try:
     import httpx
@@ -26,18 +32,22 @@ GEMINI_MODELS = {
 
 
 class GeminiSDKProvider(WorkflowLLMProvider):
-    
+
     def __init__(self, config: ProviderConfig, api_key: str = ""):
         super().__init__(config, api_key)
-        self._client: "genai.GenerativeModel | None" = None
+        self._client = None
+        self._model_name = config.model_name or "gemini-2.0-flash"
 
     async def _ensure_client(self):
         if not GEMINI_SDK_AVAILABLE:
-            raise ImportError("google-generativeai package not installed. Run: pip install google-generativeai")
-        
+            raise ImportError("Gemini SDK not installed. Run: pip install google-genai")
+
         if self._client is None:
-            genai.configure(api_key=self.api_key)
-            self._client = genai.GenerativeModel(self.config.model_name or "gemini-2.0-flash")
+            if GEMINI_SDK_NEW:
+                self._client = genai_new.Client(api_key=self.api_key)
+            else:
+                genai_old.configure(api_key=self.api_key)
+                self._client = genai_old.GenerativeModel(self._model_name)
 
     async def generate(
         self,
@@ -48,33 +58,45 @@ class GeminiSDKProvider(WorkflowLLMProvider):
     ) -> GenerationResult:
         await self._ensure_client()
         await self._set_status(ProviderStatus.GENERATING)
-        
+
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{prompt}"
+
         try:
-            generation_config = genai.GenerationConfig(
-                temperature=temperature or self.config.temperature,
-                max_output_tokens=max_tokens or 8192,
-            )
-            
-            full_prompt = prompt
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{prompt}"
-            
-            assert self._client is not None
-            response = self._client.generate_content(
-                full_prompt,
-                generation_config=generation_config,
-            )
-            
-            tokens_in = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
-            tokens_out = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
-            
+            if GEMINI_SDK_NEW:
+                from google.genai import types
+                config = types.GenerateContentConfig(
+                    temperature=temperature or self.config.temperature,
+                    max_output_tokens=max_tokens or 8192,
+                )
+                response = self._client.models.generate_content(
+                    model=self._model_name,
+                    contents=full_prompt,
+                    config=config,
+                )
+                content = response.text or ""
+                tokens_in = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+                tokens_out = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+                finish = response.candidates[0].finish_reason.name if response.candidates else "unknown"
+            else:
+                generation_config = genai_old.GenerationConfig(
+                    temperature=temperature or self.config.temperature,
+                    max_output_tokens=max_tokens or 8192,
+                )
+                response = self._client.generate_content(full_prompt, generation_config=generation_config)
+                content = response.text
+                tokens_in = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+                tokens_out = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+                finish = response.candidates[0].finish_reason.name if response.candidates else "unknown"
+
             await self._set_status(ProviderStatus.READY)
             return GenerationResult(
-                content=response.text,
+                content=content,
                 tokens_input=tokens_in,
                 tokens_output=tokens_out,
-                model_used=self.config.model_name or "gemini-2.0-flash",
-                finish_reason=response.candidates[0].finish_reason.name if response.candidates else "unknown",
+                model_used=self._model_name,
+                finish_reason=finish,
             )
         except Exception as e:
             self._last_error = str(e)
@@ -90,28 +112,35 @@ class GeminiSDKProvider(WorkflowLLMProvider):
     ) -> AsyncIterator[str]:
         await self._ensure_client()
         await self._set_status(ProviderStatus.GENERATING)
-        
+
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{prompt}"
+
         try:
-            generation_config = genai.GenerationConfig(
-                temperature=temperature or self.config.temperature,
-                max_output_tokens=max_tokens or 8192,
-            )
-            
-            full_prompt = prompt
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{prompt}"
-            
-            assert self._client is not None
-            response = self._client.generate_content(
-                full_prompt,
-                generation_config=generation_config,
-                stream=True,
-            )
-            
-            for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-            
+            if GEMINI_SDK_NEW:
+                from google.genai import types
+                config = types.GenerateContentConfig(
+                    temperature=temperature or self.config.temperature,
+                    max_output_tokens=max_tokens or 8192,
+                )
+                for chunk in self._client.models.generate_content_stream(
+                    model=self._model_name,
+                    contents=full_prompt,
+                    config=config,
+                ):
+                    if chunk.text:
+                        yield chunk.text
+            else:
+                generation_config = genai_old.GenerationConfig(
+                    temperature=temperature or self.config.temperature,
+                    max_output_tokens=max_tokens or 8192,
+                )
+                response = self._client.generate_content(full_prompt, generation_config=generation_config, stream=True)
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
+
             await self._set_status(ProviderStatus.READY)
         except Exception as e:
             self._last_error = str(e)
@@ -130,8 +159,14 @@ class GeminiSDKProvider(WorkflowLLMProvider):
     async def check_health(self) -> bool:
         try:
             await self._ensure_client()
-            assert self._client is not None
-            self._client.generate_content("test", generation_config=genai.GenerationConfig(max_output_tokens=1))
+            if GEMINI_SDK_NEW:
+                from google.genai import types
+                config = types.GenerateContentConfig(max_output_tokens=1)
+                self._client.models.generate_content(
+                    model=self._model_name, contents="test", config=config,
+                )
+            else:
+                self._client.generate_content("test", generation_config=genai_old.GenerationConfig(max_output_tokens=1))
             return True
         except Exception as e:
             self._last_error = str(e)

@@ -646,9 +646,11 @@ const workflowApp = {
     },
 
     handleWebSocketMessage(data) {
-        if (data.type === 'phase_update' || data.type === 'execution_update' || 
+        if (data.type === 'phase_update' || data.type === 'execution_update' ||
             data.type === 'status_update' || data.type === 'phase_complete') {
-            this.selectExecution(this.selectedExecution.id);
+            if (this.selectedExecution) {
+                this.selectExecution(this.selectedExecution.id);
+            }
             if (data.type === 'status_update' && data.status) {
                 const idx = this.executions.findIndex(e => e.id === this.selectedExecution?.id);
                 if (idx !== -1) {
@@ -675,7 +677,9 @@ const workflowApp = {
         }
         if (data.type === 'approval_resolved') {
             this.hideApprovalBanner();
-            this.selectExecution(this.selectedExecution.id);
+            if (this.selectedExecution) {
+                this.selectExecution(this.selectedExecution.id);
+            }
         }
         if (data.type === 'budget_update' && data.budget) {
             this.renderBudget(data.budget);

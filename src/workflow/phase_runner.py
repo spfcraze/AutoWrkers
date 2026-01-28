@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import re
 from datetime import datetime
 from typing import AsyncIterator, Callable, Awaitable, Any
+
+logger = logging.getLogger("ultraclaude.workflow")
 
 from .models import (
     WorkflowPhase,
@@ -252,6 +255,6 @@ class PhaseRunner:
             if close_method:
                 try:
                     await close_method()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Provider cleanup error: {e}")
         self._providers.clear()

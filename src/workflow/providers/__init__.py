@@ -1,6 +1,7 @@
 """LLM Provider implementations for the workflow pipeline."""
 
 from .base import WorkflowLLMProvider, GenerationResult, ModelInfo, ProviderStatus
+from .claude_code import ClaudeCodeProvider
 from .gemini import GeminiSDKProvider, GeminiOpenRouterProvider
 from .gemini_oauth import GeminiOAuthProvider
 from .openai import OpenAIProvider, OpenRouterProvider
@@ -16,6 +17,7 @@ __all__ = [
     "ModelInfo",
     "ProviderStatus",
     # Providers
+    "ClaudeCodeProvider",
     "GeminiSDKProvider",
     "GeminiOpenRouterProvider",
     "GeminiOAuthProvider",

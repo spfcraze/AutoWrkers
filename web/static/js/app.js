@@ -334,13 +334,18 @@ class UltraClaude {
         grid.innerHTML = '';
 
         const sessionsArray = Array.from(this.sessions.values());
+
+        // Update filter counts
+        this.updateFilterCounts(sessionsArray);
+
         const filtered = this.filterSessions(sessionsArray);
 
         if (filtered.length === 0) {
+            const msg = this.currentFilter === 'all' ? 'No sessions yet' : `No ${this.currentFilter.replace('_', ' ')} sessions`;
             grid.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📭</div>
-                    <p>No sessions yet</p>
+                    <p>${msg}</p>
                     <p style="margin-top: 8px; font-size: 12px;">Click "+ New Session" to start</p>
                 </div>
             `;
@@ -399,14 +404,32 @@ class UltraClaude {
 
     filterSessions(sessions) {
         if (this.currentFilter === 'all') return sessions;
+        if (this.currentFilter === 'stopped') {
+            return sessions.filter(s => s.status === 'stopped' || s.status === 'error' || s.status === 'completed');
+        }
         return sessions.filter(s => s.status === this.currentFilter);
+    }
+
+    updateFilterCounts(sessions) {
+        const counts = { all: sessions.length, running: 0, needs_attention: 0, stopped: 0 };
+        sessions.forEach(s => {
+            if (s.status === 'running') counts.running++;
+            else if (s.status === 'needs_attention') counts.needs_attention++;
+            else if (s.status === 'stopped' || s.status === 'error' || s.status === 'completed') counts.stopped++;
+        });
+        const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+        el('filter-count-all', counts.all);
+        el('filter-count-running', counts.running);
+        el('filter-count-attention', counts.needs_attention);
+        el('filter-count-stopped', counts.stopped);
     }
 
     createSessionCard(session, isChild = false, isLast = false) {
         const card = document.createElement('div');
         const childClass = isChild ? 'session-card-child' : '';
         const lastChildClass = isChild && isLast ? 'last-child' : '';
-        card.className = `session-card ${childClass} ${lastChildClass} ${session.status === 'needs_attention' ? 'needs-attention' : ''} ${session.status === 'queued' ? 'queued' : ''} ${session.id === this.activeSessionId ? 'active' : ''}`;
+        const statusCardClass = `status-${session.status}-card`;
+        card.className = `session-card ${childClass} ${lastChildClass} ${statusCardClass} ${session.status === 'needs_attention' ? 'needs-attention' : ''} ${session.status === 'queued' ? 'queued' : ''} ${session.id === this.activeSessionId ? 'active' : ''}`;
         card.dataset.sessionId = session.id;
         card.onclick = () => this.selectSession(session.id);
 
@@ -418,16 +441,17 @@ class UltraClaude {
 
         const statusLabel = {
             'running': 'Running',
-            'needs_attention': 'Needs Attention',
+            'needs_attention': 'Attention',
             'stopped': 'Stopped',
             'error': 'Error',
             'starting': 'Starting',
             'queued': 'Queued',
-            'completed': 'Completed'
+            'completed': 'Done'
         }[session.status] || session.status;
 
         const childIndicator = isChild ? '<span class="child-indicator">↳</span>' : '';
         const parentInfo = isChild && session.parent_id ? `<span class="parent-info">child of #${session.parent_id}</span>` : '';
+        const timeAgo = session.created_at ? this.timeAgo(session.created_at) : '';
 
         card.innerHTML = `
             <div class="session-card-header">
@@ -440,13 +464,33 @@ class UltraClaude {
                 <span class="status-badge status-${this.escapeHtml(session.status)}">${this.escapeHtml(statusLabel)}</span>
             </div>
             <div class="session-meta">
-                <span>📁 ${this.escapeHtml(this.truncatePath(session.working_dir))}</span>
+                <span class="session-meta-path">${this.escapeHtml(this.truncatePath(session.working_dir))}</span>
+                ${timeAgo ? `<span class="session-meta-sep">&middot;</span><span class="session-meta-time">${timeAgo}</span>` : ''}
                 ${parentInfo}
             </div>
-            ${session.last_output ? `<div class="session-preview">${this.escapeHtml(session.last_output.slice(-100))}</div>` : ''}
+            ${session.last_output ? `<div class="session-preview">${this.escapeHtml(session.last_output.slice(-120))}</div>` : ''}
         `;
 
         return card;
+    }
+
+    timeAgo(dateStr) {
+        try {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffS = Math.floor(diffMs / 1000);
+            if (diffS < 60) return 'just now';
+            const diffM = Math.floor(diffS / 60);
+            if (diffM < 60) return `${diffM}m ago`;
+            const diffH = Math.floor(diffM / 60);
+            if (diffH < 24) return `${diffH}h ago`;
+            const diffD = Math.floor(diffH / 24);
+            if (diffD < 7) return `${diffD}d ago`;
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } catch {
+            return '';
+        }
     }
 
     updateSessionCard(sessionId) {

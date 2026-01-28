@@ -45,19 +45,22 @@
             <!-- Sessions List View -->
             <div class="sessions-panel" id="list-view">
                 <div class="panel-header">
-                    <h2>All Sessions <span class="badge" id="sessions-count-badge"></span></h2>
-                    <div class="view-toggle">
-                        <button class="view-btn active" data-view="list" onclick="app.setView('list')">
-                            <span class="view-icon">☰</span> List
-                        </button>
-                        <button class="view-btn" data-view="kanban" onclick="app.setView('kanban')">
-                            <span class="view-icon">▦</span> Kanban
-                        </button>
+                    <div class="panel-header-top">
+                        <h2>Sessions <span class="badge" id="sessions-count-badge"></span></h2>
+                        <div class="view-toggle">
+                            <button class="view-btn active" data-view="list" onclick="app.setView('list')">
+                                <span class="view-icon">☰</span> List
+                            </button>
+                            <button class="view-btn" data-view="kanban" onclick="app.setView('kanban')">
+                                <span class="view-icon">▦</span> Kanban
+                            </button>
+                        </div>
                     </div>
-                    <div class="filter-buttons">
-                        <button class="filter-btn active" data-filter="all">All</button>
-                        <button class="filter-btn" data-filter="running">Running</button>
-                        <button class="filter-btn" data-filter="needs_attention">Needs Attention</button>
+                    <div class="filter-buttons" id="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">All <span class="filter-count" id="filter-count-all">0</span></button>
+                        <button class="filter-btn" data-filter="running">Running <span class="filter-count" id="filter-count-running">0</span></button>
+                        <button class="filter-btn" data-filter="needs_attention">Attention <span class="filter-count" id="filter-count-attention">0</span></button>
+                        <button class="filter-btn" data-filter="stopped">Stopped <span class="filter-count" id="filter-count-stopped">0</span></button>
                     </div>
                 </div>
                 <div class="sessions-grid" id="sessions-grid">

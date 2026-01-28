@@ -201,6 +201,11 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Graceful shutdown"""
+    # Save session state first, before reader tasks are cancelled,
+    # so running sessions persist and reconnect on restart
+    manager._save_sessions()
+    logger.info("Session state saved")
+
     task_scheduler.stop()
     logger.info("Task scheduler stopped")
     await browser_manager.close_all()
