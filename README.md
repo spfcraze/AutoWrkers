@@ -1,4 +1,4 @@
-# UltraClaude
+# Autowrkers
 
 <div align="center">
 
@@ -18,7 +18,7 @@ Automatically works on GitHub issues, verifies fixes, and creates pull requests.
 
 <div align="center">
 
-![UltraClaude Dashboard](docs/screenshots/hero.png)
+![Autowrkers Dashboard](docs/screenshots/hero.png)
 
 </div>
 
@@ -132,8 +132,8 @@ Visualize your workflow with drag-and-drop session management across status colu
 
 ```bash
 # Clone the repository
-git clone https://github.com/spfcraze/Ultra-Claude.git
-cd Ultra-Claude
+git clone https://github.com/spfcraze/AutoWrkers.git
+cd AutoWrkers
 
 # Create virtual environment
 python -m venv venv
@@ -201,10 +201,10 @@ Create a token at https://github.com/settings/tokens with:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ULTRACLAUDE_HOST` | Server bind address | `127.0.0.1` |
-| `ULTRACLAUDE_PORT` | Server port | `8420` |
-| `ULTRACLAUDE_USE_SQLITE` | Use SQLite database | `1` |
-| `ULTRACLAUDE_LOG_LEVEL` | Log level | `INFO` |
+| `AUTOWRKERS_HOST` | Server bind address | `127.0.0.1` |
+| `AUTOWRKERS_PORT` | Server port | `8420` |
+| `AUTOWRKERS_USE_SQLITE` | Use SQLite database | `1` |
+| `AUTOWRKERS_LOG_LEVEL` | Log level | `INFO` |
 
 ### Verification Commands
 
@@ -222,7 +222,7 @@ build_command: "npm run build"    # or "python -m build"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      UltraClaude                            │
+│                      Autowrkers                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────┐    ┌──────────────┐    ┌─────────────────┐    │
@@ -350,13 +350,13 @@ Real-time events:
 
 ```bash
 # Install service
-sudo cp deploy/ultraclaude.service /etc/systemd/system/
+sudo cp deploy/autowrkers.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable ultraclaude
-sudo systemctl start ultraclaude
+sudo systemctl enable autowrkers
+sudo systemctl start autowrkers
 
 # View logs
-sudo journalctl -u ultraclaude -f
+sudo journalctl -u autowrkers -f
 ```
 
 ### Or use the install script:
@@ -382,7 +382,7 @@ pytest tests/test_complexity_analyzer.py -v
 ## 📁 Project Structure
 
 ```
-ultraclaude/
+autowrkers/
 ├── src/
 │   ├── automation.py       # AutomationController, VerificationRunner
 │   ├── session_manager.py  # Tmux session management
@@ -429,7 +429,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 <div align="center">
 
-**[⬆ Back to Top](#ultraclaude)**
+**[⬆ Back to Top](#autowrkers)**
 
 Made with ❤️ for the Claude Code community
 

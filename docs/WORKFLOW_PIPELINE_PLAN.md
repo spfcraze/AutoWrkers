@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform UltraClaude from a single-LLM issue resolver into a multi-LLM collaborative pipeline where different AI models play specialized roles (analysis, planning, implementation, review) in an iterative loop.
+Transform Autowrkers from a single-LLM issue resolver into a multi-LLM collaborative pipeline where different AI models play specialized roles (analysis, planning, implementation, review) in an iterative loop.
 
 **Key Features:**
 - Multiple LLM providers per workflow (Gemini, Claude, GPT-4/Codex, Ollama)
@@ -20,7 +20,7 @@ Transform UltraClaude from a single-LLM issue resolver into a multi-LLM collabor
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              UltraClaude                                     │
+│                              Autowrkers                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
 │  │  GitHub     │  │  Manual     │  │  Directory  │  │  Existing   │        │
@@ -344,14 +344,14 @@ web/
 ├── templates/
 │   └── workflow.html          # Workflow management page
 
-~/.ultraclaude/
+~/.autowrkers/
 ├── workflow_templates/        # Global templates (YAML)
 │   ├── default_pipeline.yaml
 │   └── custom_*.yaml
 ├── provider_keys.enc          # Encrypted API keys
 └── budgets.json               # Budget tracking data
 
-<project>/.ultraclaude/
+<project>/.autowrkers/
 ├── artifacts/                 # Workflow artifacts
 │   ├── <execution_id>/
 │   │   ├── task_list.json
@@ -561,9 +561,9 @@ workflow:cancelled      # Workflow cancelled
 ### 6.1 Command Structure
 
 ```bash
-ultraclaude workflow <subcommand>  # Full command
-ultraclaude wf <subcommand>        # Alias
-ultraclaude run <args>             # Quick alias for 'workflow start'
+autowrkers workflow <subcommand>  # Full command
+autowrkers wf <subcommand>        # Alias
+autowrkers run <args>             # Quick alias for 'workflow start'
 
 # Quick start aliases
 uc run --path . --task "Fix bug"   # Shortest form (if 'uc' alias configured)
@@ -573,7 +573,7 @@ uc run --path . --task "Fix bug"   # Shortest form (if 'uc' alias configured)
 
 ```bash
 # Start workflow
-ultraclaude workflow start \
+autowrkers workflow start \
   --path /path/to/project \
   --task "Add user authentication" \
   [--template "Gemini-Claude-Codex"] \
@@ -581,66 +581,66 @@ ultraclaude workflow start \
   [--budget 5.00] \
   [--no-realtime]
 
-ultraclaude workflow start \
+autowrkers workflow start \
   --path /path/to/project \
   --analyze \
   [--template ...] \
   [--interactive]
 
-ultraclaude workflow start \
+autowrkers workflow start \
   --project myproject \
   --issue 42 \
   [--template ...]
 
 # Control
-ultraclaude workflow status [execution-id]
-ultraclaude workflow list [--status running|completed|failed]
-ultraclaude workflow pause <execution-id>
-ultraclaude workflow resume <execution-id>
-ultraclaude workflow cancel <execution-id>
-ultraclaude workflow skip-phase <execution-id>
-ultraclaude workflow approve <execution-id>
-ultraclaude workflow logs <execution-id> [--phase <phase-name>]
+autowrkers workflow status [execution-id]
+autowrkers workflow list [--status running|completed|failed]
+autowrkers workflow pause <execution-id>
+autowrkers workflow resume <execution-id>
+autowrkers workflow cancel <execution-id>
+autowrkers workflow skip-phase <execution-id>
+autowrkers workflow approve <execution-id>
+autowrkers workflow logs <execution-id> [--phase <phase-name>]
 
 # Artifacts
-ultraclaude workflow artifacts <execution-id>
-ultraclaude workflow artifact view <artifact-id>
-ultraclaude workflow artifact edit <artifact-id>
-ultraclaude workflow artifact export <artifact-id> [--output file.json]
+autowrkers workflow artifacts <execution-id>
+autowrkers workflow artifact view <artifact-id>
+autowrkers workflow artifact edit <artifact-id>
+autowrkers workflow artifact export <artifact-id> [--output file.json]
 ```
 
 ### 6.3 Template Commands
 
 ```bash
-ultraclaude template list [--global] [--project <id>]
-ultraclaude template show <template-id>
-ultraclaude template create --name "My Pipeline" [--from default]
-ultraclaude template edit <template-id>
-ultraclaude template delete <template-id>
-ultraclaude template export <template-id> [--output pipeline.yaml]
-ultraclaude template import <file.yaml> [--global|--project <id>]
-ultraclaude template set-default <template-id>
+autowrkers template list [--global] [--project <id>]
+autowrkers template show <template-id>
+autowrkers template create --name "My Pipeline" [--from default]
+autowrkers template edit <template-id>
+autowrkers template delete <template-id>
+autowrkers template export <template-id> [--output pipeline.yaml]
+autowrkers template import <file.yaml> [--global|--project <id>]
+autowrkers template set-default <template-id>
 ```
 
 ### 6.4 Provider Commands
 
 ```bash
-ultraclaude provider list
-ultraclaude provider models <provider>  # List available models
-ultraclaude provider detect <provider>  # Auto-detect models
-ultraclaude provider setup              # Interactive key setup
-ultraclaude provider setup <provider>   # Setup specific provider
-ultraclaude provider test <provider>    # Test provider connectivity
+autowrkers provider list
+autowrkers provider models <provider>  # List available models
+autowrkers provider detect <provider>  # Auto-detect models
+autowrkers provider setup              # Interactive key setup
+autowrkers provider setup <provider>   # Setup specific provider
+autowrkers provider test <provider>    # Test provider connectivity
 ```
 
 ### 6.5 Budget Commands
 
 ```bash
-ultraclaude budget status
-ultraclaude budget set --scope global --limit 50.00
-ultraclaude budget set --scope project --id 1 --limit 20.00
-ultraclaude budget reset --scope project --id 1
-ultraclaude budget history [--days 30]
+autowrkers budget status
+autowrkers budget set --scope global --limit 50.00
+autowrkers budget set --scope project --id 1 --limit 20.00
+autowrkers budget reset --scope project --id 1
+autowrkers budget history [--days 30]
 ```
 
 ---
@@ -711,7 +711,7 @@ COLORS = {
 ## 8. Default Workflow Template
 
 ```yaml
-# ~/.ultraclaude/workflow_templates/default_pipeline.yaml
+# ~/.autowrkers/workflow_templates/default_pipeline.yaml
 name: "Gemini-Claude-Codex Pipeline"
 description: "Default multi-LLM pipeline: Gemini analyzes, Claude implements, GPT-4 reviews"
 max_iterations: 3

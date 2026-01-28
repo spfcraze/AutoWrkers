@@ -1,4 +1,4 @@
-# UltraClaude Security Hardening TODO
+# Autowrkers Security Hardening TODO
 
 **Audit Date:** 2026-01-25
 **Target:** VPS/Production Deployment Security
@@ -21,7 +21,7 @@ This document outlines security issues identified during the security audit and 
 - [x] Login/register/refresh token endpoints
 - [x] User management (create, change password)
 - [x] `get_current_user` dependency for endpoint protection
-- [x] Auth enable/disable toggle (ULTRACLAUDE_AUTH_ENABLED env var)
+- [x] Auth enable/disable toggle (AUTOWRKERS_AUTH_ENABLED env var)
 - [x] Secure password hashing with salt (SHA-256)
 - [x] Protected settings endpoint (jwt_secret, auth_users hidden)
 
@@ -60,7 +60,7 @@ This document outlines security issues identified during the security audit and 
 - [x] `encrypt_if_needed()` to avoid double-encryption
 - [x] `decrypt_or_return()` for backward compatibility with legacy plaintext data
 - [x] JWT secret stored encrypted in database
-- [x] `ULTRACLAUDE_ENCRYPTION_KEY` env var support
+- [x] `AUTOWRKERS_ENCRYPTION_KEY` env var support
 
 ### 4. [x] Remove Plaintext Token Temp Files -- IMPLEMENTED
 **Location:** `src/git_credentials.py`, `src/server.py`
@@ -169,7 +169,7 @@ This document outlines security issues identified during the security audit and 
 - [x] Log all auth attempts (login success/failure, setup, password change)
 - [x] Log source IP addresses (with X-Forwarded-For support)
 - [x] Automatic log rotation (keeps last 5000 entries when exceeding 10000)
-- [x] Audit log file at `~/.ultraclaude/audit.log`
+- [x] Audit log file at `~/.autowrkers/audit.log`
 - [x] API endpoints: `GET /api/audit/log`, `GET /api/audit/failed-logins`
 - [x] AuditEventType enum covering auth, session, project, workflow, webhook, security events
 
@@ -185,8 +185,8 @@ This document outlines security issues identified during the security audit and 
 - Updated `src/security.py` - Added `HTTPSRedirectMiddleware`
 
 **What was implemented:**
-- [x] SSL/TLS configuration via args or `ULTRACLAUDE_SSL_CERTFILE`/`ULTRACLAUDE_SSL_KEYFILE` env vars
-- [x] HTTP to HTTPS redirect middleware (`ULTRACLAUDE_HTTPS_REDIRECT=true`)
+- [x] SSL/TLS configuration via args or `AUTOWRKERS_SSL_CERTFILE`/`AUTOWRKERS_SSL_KEYFILE` env vars
+- [x] HTTP to HTTPS redirect middleware (`AUTOWRKERS_HTTPS_REDIRECT=true`)
 - [x] Certificate file validation before starting
 - [x] Documented HTTPS setup with Let's Encrypt, nginx, and Caddy in `docs/DEPLOYMENT_SECURITY.md`
 
@@ -197,7 +197,7 @@ This document outlines security issues identified during the security audit and 
 - Updated `src/security.py` - Added `get_cors_origins()` function
 
 **What was implemented:**
-- [x] `CORSMiddleware` with configurable origins via `ULTRACLAUDE_CORS_ORIGINS` env var
+- [x] `CORSMiddleware` with configurable origins via `AUTOWRKERS_CORS_ORIGINS` env var
 - [x] Default restricted to localhost origins only
 - [x] Support for comma-separated multiple origins
 - [x] Wildcard (`*`) support with credential restriction per CORS spec
@@ -264,13 +264,13 @@ This document outlines security issues identified during the security audit and 
 ### Environment Variables
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `ULTRACLAUDE_AUTH_ENABLED` | Enable/disable authentication | `false` |
-| `ULTRACLAUDE_JWT_SECRET` | JWT signing secret | Auto-generated |
-| `ULTRACLAUDE_ENCRYPTION_KEY` | Credential encryption key | Auto-generated from file |
-| `ULTRACLAUDE_SSL_CERTFILE` | Path to SSL certificate (PEM) | None |
-| `ULTRACLAUDE_SSL_KEYFILE` | Path to SSL private key (PEM) | None |
-| `ULTRACLAUDE_HTTPS_REDIRECT` | Redirect HTTP to HTTPS | `false` |
-| `ULTRACLAUDE_CORS_ORIGINS` | Comma-separated allowed CORS origins | localhost only |
+| `AUTOWRKERS_AUTH_ENABLED` | Enable/disable authentication | `false` |
+| `AUTOWRKERS_JWT_SECRET` | JWT signing secret | Auto-generated |
+| `AUTOWRKERS_ENCRYPTION_KEY` | Credential encryption key | Auto-generated from file |
+| `AUTOWRKERS_SSL_CERTFILE` | Path to SSL certificate (PEM) | None |
+| `AUTOWRKERS_SSL_KEYFILE` | Path to SSL private key (PEM) | None |
+| `AUTOWRKERS_HTTPS_REDIRECT` | Redirect HTTP to HTTPS | `false` |
+| `AUTOWRKERS_CORS_ORIGINS` | Comma-separated allowed CORS origins | localhost only |
 
 ### Behavior Changes
 - **Default bind address** changed from `0.0.0.0` to `127.0.0.1`
@@ -283,7 +283,7 @@ This document outlines security issues identified during the security audit and 
 - **Git tokens** no longer linger on disk - secure context manager with zero-overwrite cleanup
 - **Webhook warnings** logged when no signature verification is configured
 - **Input validation** enforced on all Pydantic request models (length limits, range constraints)
-- **Audit logging** tracks all auth events to `~/.ultraclaude/audit.log`
+- **Audit logging** tracks all auth events to `~/.autowrkers/audit.log`
 - **HTTPS** supported via SSL cert/key or reverse proxy
 - **Dependencies** pinned to exact versions for reproducible builds
 

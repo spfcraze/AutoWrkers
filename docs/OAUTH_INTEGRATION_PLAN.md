@@ -1,8 +1,8 @@
-# OAuth Integration Plan for UltraClaude
+# OAuth Integration Plan for Autowrkers
 
 ## Executive Summary
 
-This document outlines the plan to add OAuth authentication to UltraClaude's Multi-LLM Workflow Pipeline. OAuth will be an **alternative** to API keys for providers that support it, offering:
+This document outlines the plan to add OAuth authentication to Autowrkers's Multi-LLM Workflow Pipeline. OAuth will be an **alternative** to API keys for providers that support it, offering:
 
 1. **No API key management** - Users authenticate via browser, tokens stored securely
 2. **Free-tier access** - Some providers offer free access via OAuth (e.g., Gemini AI Studio)
@@ -338,7 +338,7 @@ class CopilotProvider(WorkflowLLMProvider):
 3. Enable "Generative Language API"
 4. Create OAuth 2.0 credentials (Desktop app type)
 5. Download `client_secret.json`
-6. Upload to UltraClaude settings OR paste JSON content
+6. Upload to Autowrkers settings OR paste JSON content
 
 **Stored Config:**
 ```json
@@ -356,9 +356,9 @@ class CopilotProvider(WorkflowLLMProvider):
 }
 ```
 
-### UltraClaude OAuth Secrets (for production)
+### Autowrkers OAuth Secrets (for production)
 
-For a production deployment, UltraClaude could have its own registered OAuth app:
+For a production deployment, Autowrkers could have its own registered OAuth app:
 - Google OAuth App
 - GitHub OAuth App
 

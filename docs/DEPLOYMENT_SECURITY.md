@@ -1,4 +1,4 @@
-# UltraClaude Deployment Security Guide
+# Autowrkers Deployment Security Guide
 
 **Version:** v0.3.0
 **Last Updated:** 2026-01-25
@@ -7,15 +7,15 @@
 
 ## Quick Start Checklist
 
-Before deploying UltraClaude on a VPS or any network-accessible server, complete these steps:
+Before deploying Autowrkers on a VPS or any network-accessible server, complete these steps:
 
-- [ ] Enable authentication (`ULTRACLAUDE_AUTH_ENABLED=true`)
+- [ ] Enable authentication (`AUTOWRKERS_AUTH_ENABLED=true`)
 - [ ] Set up the admin account via `/api/auth/setup`
-- [ ] Configure a strong JWT secret (`ULTRACLAUDE_JWT_SECRET`)
-- [ ] Set an encryption key (`ULTRACLAUDE_ENCRYPTION_KEY`)
+- [ ] Configure a strong JWT secret (`AUTOWRKERS_JWT_SECRET`)
+- [ ] Set an encryption key (`AUTOWRKERS_ENCRYPTION_KEY`)
 - [ ] Configure a firewall (allow only ports 22, 80/443, 8420)
 - [ ] Set up HTTPS (SSL certificate + key)
-- [ ] Restrict CORS origins (`ULTRACLAUDE_CORS_ORIGINS`)
+- [ ] Restrict CORS origins (`AUTOWRKERS_CORS_ORIGINS`)
 - [ ] Configure webhook secrets for all GitHub integrations
 - [ ] Review audit logs periodically (`/api/audit/log`)
 - [ ] Pin dependencies and run `pip-audit` before deploying
@@ -26,13 +26,13 @@ Before deploying UltraClaude on a VPS or any network-accessible server, complete
 
 | Variable | Purpose | Default | Required |
 |----------|---------|---------|----------|
-| `ULTRACLAUDE_AUTH_ENABLED` | Enable JWT authentication | `false` | **Yes** for production |
-| `ULTRACLAUDE_JWT_SECRET` | JWT signing secret | Auto-generated | Recommended |
-| `ULTRACLAUDE_ENCRYPTION_KEY` | Fernet key for credential encryption | Auto-generated from file | Recommended |
-| `ULTRACLAUDE_SSL_CERTFILE` | Path to SSL certificate (PEM) | None | For HTTPS |
-| `ULTRACLAUDE_SSL_KEYFILE` | Path to SSL private key (PEM) | None | For HTTPS |
-| `ULTRACLAUDE_HTTPS_REDIRECT` | Redirect HTTP to HTTPS | `false` | For HTTPS |
-| `ULTRACLAUDE_CORS_ORIGINS` | Comma-separated allowed origins | localhost only | For external access |
+| `AUTOWRKERS_AUTH_ENABLED` | Enable JWT authentication | `false` | **Yes** for production |
+| `AUTOWRKERS_JWT_SECRET` | JWT signing secret | Auto-generated | Recommended |
+| `AUTOWRKERS_ENCRYPTION_KEY` | Fernet key for credential encryption | Auto-generated from file | Recommended |
+| `AUTOWRKERS_SSL_CERTFILE` | Path to SSL certificate (PEM) | None | For HTTPS |
+| `AUTOWRKERS_SSL_KEYFILE` | Path to SSL private key (PEM) | None | For HTTPS |
+| `AUTOWRKERS_HTTPS_REDIRECT` | Redirect HTTP to HTTPS | `false` | For HTTPS |
+| `AUTOWRKERS_CORS_ORIGINS` | Comma-separated allowed origins | localhost only | For external access |
 
 ---
 
@@ -43,7 +43,7 @@ Authentication is **disabled by default** for backward compatibility. You **must
 ### Enable Authentication
 
 ```bash
-export ULTRACLAUDE_AUTH_ENABLED=true
+export AUTOWRKERS_AUTH_ENABLED=true
 ```
 
 ### Create Admin Account
@@ -80,7 +80,7 @@ curl http://localhost:8420/api/projects \
 By default, a random JWT secret is generated and stored encrypted in the database. For multi-instance deployments, set a shared secret:
 
 ```bash
-export ULTRACLAUDE_JWT_SECRET="your-256-bit-secret-here"
+export AUTOWRKERS_JWT_SECRET="your-256-bit-secret-here"
 ```
 
 ---
@@ -89,16 +89,16 @@ export ULTRACLAUDE_JWT_SECRET="your-256-bit-secret-here"
 
 ### Option A: Direct SSL (Simple)
 
-Provide certificate and key files directly to UltraClaude:
+Provide certificate and key files directly to Autowrkers:
 
 ```bash
-export ULTRACLAUDE_SSL_CERTFILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
-export ULTRACLAUDE_SSL_KEYFILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+export AUTOWRKERS_SSL_CERTFILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+export AUTOWRKERS_SSL_KEYFILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
 ```
 
 Or via CLI:
 ```bash
-ultraclaude serve --ssl-certfile /path/to/cert.pem --ssl-keyfile /path/to/key.pem
+autowrkers serve --ssl-certfile /path/to/cert.pem --ssl-keyfile /path/to/key.pem
 ```
 
 ### Option B: Reverse Proxy (Recommended for Production)
@@ -155,7 +155,7 @@ certbot certonly --standalone -d yourdomain.com
 When using direct SSL (not a reverse proxy), enable automatic redirect:
 
 ```bash
-export ULTRACLAUDE_HTTPS_REDIRECT=true
+export AUTOWRKERS_HTTPS_REDIRECT=true
 ```
 
 ---
@@ -166,13 +166,13 @@ By default, CORS is restricted to localhost origins only. For production with a 
 
 ```bash
 # Single origin
-export ULTRACLAUDE_CORS_ORIGINS=https://yourdomain.com
+export AUTOWRKERS_CORS_ORIGINS=https://yourdomain.com
 
 # Multiple origins
-export ULTRACLAUDE_CORS_ORIGINS=https://app.example.com,https://admin.example.com
+export AUTOWRKERS_CORS_ORIGINS=https://app.example.com,https://admin.example.com
 
 # Allow all (NOT recommended for production)
-export ULTRACLAUDE_CORS_ORIGINS=*
+export AUTOWRKERS_CORS_ORIGINS=*
 ```
 
 Allowed methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
@@ -187,7 +187,7 @@ When using wildcard (`*`), credentials (cookies, auth headers) are not supported
 The server defaults to `127.0.0.1` (localhost only). To accept external connections:
 
 ```bash
-ultraclaude serve --host 0.0.0.0
+autowrkers serve --host 0.0.0.0
 ```
 
 **Warning**: If you bind to `0.0.0.0` without authentication enabled, a warning will be logged. Always enable auth before exposing the server.
@@ -221,8 +221,8 @@ All sensitive fields (API keys, tokens, secrets) are encrypted at rest using Fer
 ### Encryption Key Management
 
 The encryption key is resolved in this order:
-1. `ULTRACLAUDE_ENCRYPTION_KEY` environment variable
-2. Key file at `~/.ultraclaude/.encryption_key` (auto-created with 0600 permissions)
+1. `AUTOWRKERS_ENCRYPTION_KEY` environment variable
+2. Key file at `~/.autowrkers/.encryption_key` (auto-created with 0600 permissions)
 3. Auto-generated and saved to key file
 
 **For production**, set the key explicitly and back it up:
@@ -231,7 +231,7 @@ The encryption key is resolved in this order:
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 # Set it
-export ULTRACLAUDE_ENCRYPTION_KEY="your-generated-key"
+export AUTOWRKERS_ENCRYPTION_KEY="your-generated-key"
 ```
 
 **Important**: If you lose the encryption key, all encrypted credentials will be unreadable and must be re-entered.
@@ -243,7 +243,7 @@ export ULTRACLAUDE_ENCRYPTION_KEY="your-generated-key"
 When using GitHub webhooks, always configure a webhook secret:
 
 1. Set a secret in your GitHub webhook configuration
-2. Configure the same secret in UltraClaude's project webhook settings
+2. Configure the same secret in Autowrkers's project webhook settings
 
 Without a secret, webhooks are accepted without signature verification and a warning is logged.
 
@@ -253,7 +253,7 @@ Failed signature verification attempts are logged with the source IP.
 
 ## 8. Audit Logging
 
-All security-relevant events are logged to `~/.ultraclaude/audit.log` as JSON:
+All security-relevant events are logged to `~/.autowrkers/audit.log` as JSON:
 
 ### Events Tracked
 - Authentication: login success/failure, setup, password changes
@@ -289,7 +289,7 @@ ufw default allow outgoing
 ufw allow 22/tcp        # SSH
 ufw allow 80/tcp        # HTTP (for redirect)
 ufw allow 443/tcp       # HTTPS
-ufw allow 8420/tcp      # UltraClaude (if not behind proxy)
+ufw allow 8420/tcp      # Autowrkers (if not behind proxy)
 ufw enable
 ```
 
@@ -345,13 +345,13 @@ Consider using Dependabot or Renovate for automated dependency update PRs.
 ## 12. Incident Response
 
 ### Signs of Compromise
-- Unusual entries in audit log (`~/.ultraclaude/audit.log`)
+- Unusual entries in audit log (`~/.autowrkers/audit.log`)
 - Multiple failed login attempts from unknown IPs
 - Path traversal attempts in logs
 - Unexpected rate limit blocks
 
 ### Response Steps
-1. **Contain**: Stop the server (`kill $(pgrep -f ultraclaude)`)
+1. **Contain**: Stop the server (`kill $(pgrep -f autowrkers)`)
 2. **Investigate**: Review audit logs and system logs
 3. **Rotate**: Change all credentials (JWT secret, encryption key, API tokens)
 4. **Patch**: Update dependencies and apply fixes
@@ -361,10 +361,10 @@ Consider using Dependabot or Renovate for automated dependency update PRs.
 
 ```bash
 # Generate new JWT secret
-export ULTRACLAUDE_JWT_SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export AUTOWRKERS_JWT_SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 
 # Generate new encryption key
-export ULTRACLAUDE_ENCRYPTION_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+export AUTOWRKERS_ENCRYPTION_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
 
 # Note: After rotating the encryption key, all previously encrypted
 # credentials must be re-entered through the UI or API.
@@ -375,29 +375,29 @@ export ULTRACLAUDE_ENCRYPTION_KEY="$(python3 -c 'from cryptography.fernet import
 ## Example Production Configuration
 
 ```bash
-# /etc/ultraclaude/env (or systemd EnvironmentFile)
-ULTRACLAUDE_AUTH_ENABLED=true
-ULTRACLAUDE_JWT_SECRET=your-secret-here
-ULTRACLAUDE_ENCRYPTION_KEY=your-fernet-key-here
-ULTRACLAUDE_CORS_ORIGINS=https://yourdomain.com
-ULTRACLAUDE_SSL_CERTFILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
-ULTRACLAUDE_SSL_KEYFILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
-ULTRACLAUDE_HTTPS_REDIRECT=true
+# /etc/autowrkers/env (or systemd EnvironmentFile)
+AUTOWRKERS_AUTH_ENABLED=true
+AUTOWRKERS_JWT_SECRET=your-secret-here
+AUTOWRKERS_ENCRYPTION_KEY=your-fernet-key-here
+AUTOWRKERS_CORS_ORIGINS=https://yourdomain.com
+AUTOWRKERS_SSL_CERTFILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+AUTOWRKERS_SSL_KEYFILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+AUTOWRKERS_HTTPS_REDIRECT=true
 ```
 
 ### Systemd Service
 
 ```ini
 [Unit]
-Description=UltraClaude Server
+Description=Autowrkers Server
 After=network.target
 
 [Service]
 Type=simple
-User=ultraclaude
-WorkingDirectory=/opt/ultraclaude
-EnvironmentFile=/etc/ultraclaude/env
-ExecStart=/opt/ultraclaude/venv/bin/python -m src.cli serve --host 0.0.0.0 --port 8420
+User=autowrkers
+WorkingDirectory=/opt/autowrkers
+EnvironmentFile=/etc/autowrkers/env
+ExecStart=/opt/autowrkers/venv/bin/python -m src.cli serve --host 0.0.0.0 --port 8420
 Restart=always
 RestartSec=5
 

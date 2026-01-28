@@ -1,8 +1,8 @@
-# GitHub Issues Integration Plan for UltraClaude
+# GitHub Issues Integration Plan for Autowrkers
 
 ## Overview
 
-Integrate GitHub Issues with UltraClaude to automatically create sessions that work on issues, verify fixes, and create pull requests.
+Integrate GitHub Issues with Autowrkers to automatically create sessions that work on issues, verify fixes, and create pull requests.
 
 ---
 
@@ -10,7 +10,7 @@ Integrate GitHub Issues with UltraClaude to automatically create sessions that w
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  GitHub Issues  │────▶│  UltraClaude     │────▶│  Pull Requests  │
+│  GitHub Issues  │────▶│  Autowrkers     │────▶│  Pull Requests  │
 │  (Auto-sync)    │     │  Sessions        │     │  (Auto-create)  │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
         │                       │                        │
@@ -30,7 +30,7 @@ Integrate GitHub Issues with UltraClaude to automatically create sessions that w
 
 ### 1. Projects (New Concept)
 
-A **Project** is a container that links UltraClaude to a GitHub repository.
+A **Project** is a container that links Autowrkers to a GitHub repository.
 
 ```python
 @dataclass
@@ -93,7 +93,7 @@ class IssueSession:
     github_issue_number: int
     github_issue_title: str
     github_issue_body: str
-    session_id: int           # UltraClaude session
+    session_id: int           # Autowrkers session
     status: IssueStatus       # pending, in_progress, verifying, pr_created, completed, failed
     branch_name: str          # feature/issue-123
     pr_number: int            # created PR number

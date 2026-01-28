@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document outlines the plan to integrate Anthropic's Claude Agent SDK with UltraClaude using a **hybrid approach**: SDK for orchestration/planning phases, tmux-based CLI for execution phases.
+This document outlines the plan to integrate Anthropic's Claude Agent SDK with Autowrkers using a **hybrid approach**: SDK for orchestration/planning phases, tmux-based CLI for execution phases.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         UltraClaude                                  │
+│                         Autowrkers                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
@@ -80,7 +80,7 @@ echo "claude-agent-sdk>=0.1.0" >> requirements.txt
 
 ```python
 """
-SDK Todo Models - Bridge between Claude Agent SDK and UltraClaude
+SDK Todo Models - Bridge between Claude Agent SDK and Autowrkers
 """
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -110,7 +110,7 @@ class SDKTodo:
     content: str
     status: TodoStatus = TodoStatus.PENDING
     priority: TodoPriority = TodoPriority.MEDIUM
-    phase_execution_id: Optional[str] = None  # Link to UltraClaude phase
+    phase_execution_id: Optional[str] = None  # Link to Autowrkers phase
     workflow_execution_id: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -186,7 +186,7 @@ CREATE INDEX IF NOT EXISTS idx_sdk_todos_status ON sdk_todos(status);
 
 ```python
 """
-Claude Agent SDK Bridge - Integrates SDK with UltraClaude workflow system
+Claude Agent SDK Bridge - Integrates SDK with Autowrkers workflow system
 """
 import asyncio
 from typing import AsyncIterator, Callable, Optional, Any
@@ -205,7 +205,7 @@ class SDKConfig:
 
 class SDKBridge:
     """
-    Bridge between Claude Agent SDK and UltraClaude.
+    Bridge between Claude Agent SDK and Autowrkers.
     
     Handles:
     - SDK query execution
@@ -442,7 +442,7 @@ def create_provider(self, config: ProviderConfig) -> WorkflowLLMProvider:
 """
 Todo Synchronization Manager
 
-Bridges SDK todos with UltraClaude's phase execution tracking.
+Bridges SDK todos with Autowrkers's phase execution tracking.
 Provides real-time updates to the web UI via WebSocket.
 """
 import asyncio
@@ -458,7 +458,7 @@ class TodoSyncManager:
     """
     Manages synchronization between:
     - Claude Agent SDK TodoWrite events
-    - UltraClaude PhaseExecution status
+    - Autowrkers PhaseExecution status
     - WebSocket broadcasts to UI
     """
     

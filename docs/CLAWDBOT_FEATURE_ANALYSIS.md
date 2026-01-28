@@ -1,8 +1,8 @@
-# Clawdbot Feature Analysis for UltraClaude
+# Clawdbot Feature Analysis for Autowrkers
 
 ## Executive Summary
 
-After reviewing [clawdbot](https://github.com/clawdbot/clawdbot), this document identifies key features that could significantly improve UltraClaude's 24/7 automation capabilities.
+After reviewing [clawdbot](https://github.com/clawdbot/clawdbot), this document identifies key features that could significantly improve Autowrkers's 24/7 automation capabilities.
 
 **Priority Recommendations:**
 1. **Daemon Mode** - Critical for 24/7 operation
@@ -15,7 +15,7 @@ After reviewing [clawdbot](https://github.com/clawdbot/clawdbot), this document 
 
 ## Feature Comparison Matrix
 
-| Feature | Clawdbot | UltraClaude | Priority | Effort |
+| Feature | Clawdbot | Autowrkers | Priority | Effort |
 |---------|----------|-------------|----------|--------|
 | Daemon/Service Mode | ✅ systemd/launchd | ❌ Manual start | **HIGH** | Medium |
 | Cron Job Scheduler | ✅ Built-in | ❌ None | **HIGH** | Low |
@@ -41,11 +41,11 @@ After reviewing [clawdbot](https://github.com/clawdbot/clawdbot), this document 
 - Survives reboots, automatic restart on crash
 - Clean shutdown handling
 
-**What UltraClaude Needs:**
+**What Autowrkers Needs:**
 ```python
 # src/daemon.py - New file
 class DaemonManager:
-    """Manage UltraClaude as a system service"""
+    """Manage Autowrkers as a system service"""
 
     def install_systemd(self):
         """Install systemd service unit"""
@@ -67,8 +67,8 @@ class DaemonManager:
 ```
 
 **Implementation Tasks:**
-1. Create `deploy/ultraclaude.service` (already exists partially)
-2. Create `deploy/com.ultraclaude.plist` for macOS
+1. Create `deploy/autowrkers.service` (already exists partially)
+2. Create `deploy/com.autowrkers.plist` for macOS
 3. Add CLI commands: `python main.py daemon install|start|stop|status`
 4. Add watchdog for automatic restart on crash
 5. Implement graceful shutdown (save session state)
@@ -82,7 +82,7 @@ class DaemonManager:
 - Integrates with sessions for context
 - Supports various schedules (hourly, daily, custom)
 
-**What UltraClaude Needs:**
+**What Autowrkers Needs:**
 ```python
 # src/scheduler.py - New file
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -131,7 +131,7 @@ class TaskScheduler:
 - Triggers actions based on webhook payloads
 - Supports custom webhook paths
 
-**What UltraClaude Needs:**
+**What Autowrkers Needs:**
 ```python
 # src/webhooks.py - New file
 class WebhookHandler:
@@ -178,7 +178,7 @@ class WebhookHandler:
 - Sends notifications across platforms
 - Supports rich formatting per platform
 
-**What UltraClaude Needs:**
+**What Autowrkers Needs:**
 ```python
 # src/notifications.py - New file
 class NotificationManager:
@@ -205,7 +205,7 @@ class NotificationManager:
 | issue.failed | "Issue #123 failed verification (attempt 2/3)" |
 | issue.needs_review | "Issue #123 flagged as complex - needs human review" |
 | session.error | "Session 'fix-auth' encountered an error" |
-| update.available | "UltraClaude v0.3.0 is available" |
+| update.available | "Autowrkers v0.3.0 is available" |
 
 **Implementation Tasks:**
 1. Create `src/notifications.py`
@@ -224,7 +224,7 @@ class NotificationManager:
 - Network monitoring, console logging
 - Persistent browser sessions
 
-**What UltraClaude Could Do:**
+**What Autowrkers Could Do:**
 ```python
 # src/browser_tools.py - New file
 class BrowserAutomation:
@@ -240,7 +240,7 @@ class BrowserAutomation:
         """Verify a deployment is working"""
 ```
 
-**Use Cases for UltraClaude:**
+**Use Cases for Autowrkers:**
 1. Visual verification of UI changes
 2. E2E test execution as part of verification pipeline
 3. Screenshot comparison for regression testing
@@ -263,7 +263,7 @@ class BrowserAutomation:
 - Isolated execution environment
 - Resource limits
 
-**What UltraClaude Could Do:**
+**What Autowrkers Could Do:**
 ```python
 # src/sandbox.py - New file
 class SandboxManager:
@@ -406,10 +406,10 @@ signal.signal(signal.SIGINT, handle_shutdown)
 └─────────────────────────────────────────────────┘
 ```
 
-### Proposed UltraClaude Architecture
+### Proposed Autowrkers Architecture
 ```
 ┌─────────────────────────────────────────────────┐
-│              UltraClaude Server                 │
+│              Autowrkers Server                 │
 │         (FastAPI + WebSocket + Scheduler)       │
 ├─────────────────────────────────────────────────┤
 │  Triggers     │   Sessions   │   Outputs       │
@@ -429,7 +429,7 @@ signal.signal(signal.SIGINT, handle_shutdown)
 
 ## Conclusion
 
-UltraClaude already has excellent GitHub integration and multi-session management. By adopting these features from clawdbot, we can transform it into a true 24/7 autonomous development system:
+Autowrkers already has excellent GitHub integration and multi-session management. By adopting these features from clawdbot, we can transform it into a true 24/7 autonomous development system:
 
 **Must Have (Phase 1):**
 - Daemon mode for always-on operation
@@ -441,4 +441,4 @@ UltraClaude already has excellent GitHub integration and multi-session managemen
 - Browser automation for visual verification
 - Docker sandboxing for security
 
-The key differentiator for UltraClaude should remain **GitHub-centric automation** - no other tool combines Claude Code with GitHub Issues and PR creation as seamlessly.
+The key differentiator for Autowrkers should remain **GitHub-centric automation** - no other tool combines Claude Code with GitHub Issues and PR creation as seamlessly.
